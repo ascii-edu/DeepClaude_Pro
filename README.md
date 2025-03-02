@@ -4,16 +4,10 @@
 
 <img src="frontend/public/deepclaude.png" width="300">
 
-借助统一的应用程序编程接口（API）和聊天界面，发挥深度求索（DeepSeek）R1的推理能力以及克劳德（Claude）的创造力和代码生成能力。 
+借助统一的应用程序编程接口（API）和聊天界面，发挥深度求索（DeepSeek）R1的推理能力以及克劳德（Claude）的创造力和代码生成能力。
+
 [![Rust](https://img.shields.io/badge/rust-v1.75%2B-orange)](https://www.rust-lang.org/)
 [![API Status](https://img.shields.io/badge/API-Stable-green)](https://deepclaude.asterisk.so)
-
-[Getting Started](#getting-started) •
-[Features](#features) •
-[API Usage](#api-usage) •
-[Documentation](#documentation) •
-[Self-Hosting](#self-hosting) •
-[Contributing](#contributing)
 
 </div>
 
