@@ -1,11 +1,24 @@
 <div align="center">
-  # DeepClaude_Pro 🐬🧠
-  <img src="frontend/public/deepclaude.png" width="300">
-  借助统一的应用程序编程接口（API）和聊天界面，发挥深度求索（DeepSeek）R1的推理能力以及Claude的创造力和代码生成能力。
-  [![Rust](https://img.shields.io/badge/rust-v1.75%2B-orange)](https://www.rust-lang.org/)
-  [![API状态](https://img.shields.io/badge/API-稳定-绿色)](https://deepclaude.asterisk.so)
-  [快速入门](#快速入门) • [功能特性](#功能特性) • [API使用方法](#api使用方法) • [文档说明](#文档说明) • [自主托管](#自主托管) • [贡献代码](#贡献代码)
+
+<h1>DeepClaude_Pro 🐬🧠</h1>
+
+<img src="frontend/public/deepclaude.png" width="300">
+
+借助统一的应用程序编程接口（API）和聊天界面，发挥深度求索（DeepSeek）R1的推理能力以及克劳德（Claude）的创造力和代码生成能力。 
+[![Rust](https://img.shields.io/badge/rust-v1.75%2B-orange)](https://www.rust-lang.org/)
+[![API Status](https://img.shields.io/badge/API-Stable-green)](https://deepclaude.asterisk.so)
+
+[Getting Started](#getting-started) •
+[Features](#features) •
+[API Usage](#api-usage) •
+[Documentation](#documentation) •
+[Self-Hosting](#self-hosting) •
+[Contributing](#contributing)
+
 </div>
+
+
+
 
 ## 目录
 - [概述](#概述)
