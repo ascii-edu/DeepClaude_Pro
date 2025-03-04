@@ -49,10 +49,13 @@ use serde_json;
 use tracing;
 
 pub(crate) const ANTHROPIC_API_URL: &str = "https://api.gptsapi.net/v1/messages";
+pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
 //pub(crate) const ANTHROPIC_API_URL: &str = "https://anthropic.claude-plus.top/v1/messages";
 /// pub(crate) const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages
 // const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20241022";
-const DEFAULT_MODEL: &str = "wild-3-5-sonnet-20241022";
+//const DEFAULT_MODEL: &str = "wild-3-5-sonnet-20241022";
+//const DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
+const DEFAULT_MODEL: &str = "deepseek-v3-241226";
 //const DEFAULT_MODEL: &str = "claude-3-7-sonnet-20250219";
 /// Client for interacting with Anthropic's Claude models.
 ///
@@ -202,6 +205,7 @@ impl AnthropicClient {
     /// # Arguments
     ///
     /// * `custom_headers` - Optional additional headers to include in requests
+    /// * `is_deepseek` - Whether the request is for Deepseek API
     ///
     /// # Returns
     ///
@@ -212,43 +216,62 @@ impl AnthropicClient {
     /// Returns `ApiError::Internal` if:
     /// - The API token is invalid
     /// - Content-Type or Anthropic-Version headers cannot be constructed
-    pub(crate) fn build_headers(&self, custom_headers: Option<&HashMap<String, String>>) -> Result<HeaderMap> {
+    pub(crate) fn build_headers(&self, custom_headers: Option<&HashMap<String, String>>, is_deepseek: bool) -> Result<HeaderMap> {
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "x-api-key",
-            self.api_token
-                .parse()
-                .map_err(|e| ApiError::Internal { 
-                    message: format!("Invalid API token: {}", e) 
-                })?,
-        );
+        
+        // 根据API类型设置不同的认证头
+        if is_deepseek {
+            // Deepseek API使用Bearer认证
+            headers.insert(
+                "Authorization",
+                format!("Bearer {}", self.api_token)
+                    .parse()
+                    .map_err(|e| ApiError::Internal { 
+                        message: format!("无效的Authorization头: {}", e) 
+                    })?,
+            );
+        } else {
+            // Anthropic API使用x-api-key认证
+            headers.insert(
+                "x-api-key",
+                self.api_token
+                    .parse()
+                    .map_err(|e| ApiError::Internal { 
+                        message: format!("无效的API令牌: {}", e) 
+                    })?,
+            );
+            
+            // Anthropic特有的版本头
+            headers.insert(
+                "anthropic-version",
+                "2023-06-01"
+                    .parse()
+                    .map_err(|e| ApiError::Internal { 
+                        message: format!("无效的anthropic版本: {}", e) 
+                    })?,
+            );
+        }
+        
+        // 通用头部
         headers.insert(
             "content-type",
             "application/json"
                 .parse()
                 .map_err(|e| ApiError::Internal { 
-                    message: format!("Invalid content type: {}", e) 
+                    message: format!("无效的内容类型: {}", e) 
                 })?,
         );
-        headers.insert(
-            "anthropic-version",
-            "2023-06-01"
-                .parse()
-                .map_err(|e| ApiError::Internal { 
-                    message: format!("Invalid anthropic version: {}", e) 
-                })?,
-        );
-
-        // 添加额外的验证头
+        
         headers.insert(
             "accept",
             "application/json"
                 .parse()
                 .map_err(|e| ApiError::Internal {
-                    message: format!("Invalid accept header: {}", e)
+                    message: format!("无效的accept头: {}", e)
                 })?,
         );
 
+        // 添加自定义头部
         if let Some(custom) = custom_headers {
             headers.extend(super::build_headers(custom)?);
         }
@@ -290,8 +313,10 @@ impl AnthropicClient {
             .collect();
 
         // Create base request with required fields
-        let default_model = serde_json::json!(DEFAULT_MODEL);
-        let model_value = config.body.get("model").unwrap_or(&default_model);
+        let default_model_json = serde_json::json!(DEFAULT_MODEL);
+        let model_value = config.body.get("model").unwrap_or(&default_model_json);
+        let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
+        let _is_deepseek = model_str.starts_with("deepseek");
         
         let default_max_tokens = if let Some(model_str) = model_value.as_str() {
             if model_str.contains("claude-3-opus") {
@@ -390,18 +415,31 @@ impl AnthropicClient {
             }
         }
 
-        // 原有的请求逻辑
-        let headers = self.build_headers(Some(&config.headers))?;
+        // 获取模型名称，决定使用哪个API端点
+        let default_model_json = serde_json::json!(DEFAULT_MODEL);
+        let model_value = config.body.get("model").unwrap_or(&default_model_json);
+        let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
+        let _is_deepseek = model_str.starts_with("deepseek");
+        
+        // 选择API端点
+        let api_url = if _is_deepseek {
+            DEEPSEEK_API_URL
+        } else {
+            ANTHROPIC_API_URL
+        };
+        
+        // 构建请求头和请求体
+        let headers = self.build_headers(Some(&config.headers), _is_deepseek)?;
         let request = self.build_request(messages, system, false, config);
         
-        // 记录完整请求内容
-        tracing::debug!("Anthropic请求URL: {}", ANTHROPIC_API_URL);
-        tracing::debug!("Anthropic请求头: {:?}", headers);
+        // 记录请求信息
+        tracing::debug!("API请求URL: {}", api_url);
+        tracing::debug!("API请求头: {:?}", headers);
         //tracing::debug!("Anthropic请求体: {}", serde_json::to_string(&request).unwrap_or_default());
         
         // 发送请求
         let response = self.client
-            .post(ANTHROPIC_API_URL)
+            .post(api_url)
             .headers(headers)
             .json(&request)
             .send()
@@ -421,29 +459,36 @@ impl AnthropicClient {
             code: None
         })?;
 
-        tracing::debug!("原始Anthropic响应: {}", raw_response);
+        tracing::debug!("原始Anthropic块的响应: {}", raw_response);
 
-        // 即使响应包含错误信息，也尝试提取有效内容
-        if raw_response.contains("id") && raw_response.contains("content") && (raw_response.contains("message") || raw_response.contains("text")) {
-            // 优先尝试标准格式解析
-            if let Ok(data) = serde_json::from_str::<AnthropicResponse>(&raw_response) {
-                return Ok(data);
-            }
-            
-            // 尝试提取内容
-            if let Ok(content_blocks) = extract_content_from_response(&raw_response) {
-                if !content_blocks.is_empty() && !content_blocks[0].text.is_empty() {
-                    // 构造响应
-                    return Ok(AnthropicResponse {
-                        id: extract_id_from_response(&raw_response).unwrap_or_else(|| "generated_id".to_string()),
-                        response_type: "message".to_string(),
-                        role: "assistant".to_string(),
-                        model: extract_model_from_response(&raw_response).unwrap_or_else(|| DEFAULT_MODEL.to_string()),
-                        content: content_blocks,
-                        stop_reason: Some("stop".to_string()),
-                        stop_sequence: None,
-                        usage: extract_usage_from_response(&raw_response).unwrap_or_default(),
-                    });
+        // 处理不同API的响应格式
+        if _is_deepseek {
+            // 处理Deepseek API响应
+            return parse_deepseek_response(&raw_response);
+        } else {
+            // 处理原有Anthropic API响应
+            // 即使响应包含错误信息，也尝试提取有效内容
+            if raw_response.contains("id") && raw_response.contains("content") && (raw_response.contains("message") || raw_response.contains("text")) {
+                // 优先尝试标准格式解析
+                if let Ok(data) = serde_json::from_str::<AnthropicResponse>(&raw_response) {
+                    return Ok(data);
+                }
+                
+                // 尝试提取内容
+                if let Ok(content_blocks) = extract_content_from_response(&raw_response) {
+                    if !content_blocks.is_empty() && !content_blocks[0].text.is_empty() {
+                        // 构造响应
+                        return Ok(AnthropicResponse {
+                            id: extract_id_from_response(&raw_response).unwrap_or_else(|| "generated_id".to_string()),
+                            response_type: "message".to_string(),
+                            role: "assistant".to_string(),
+                            model: extract_model_from_response(&raw_response).unwrap_or_else(|| DEFAULT_MODEL.to_string()),
+                            content: content_blocks,
+                            stop_reason: Some("stop".to_string()),
+                            stop_sequence: None,
+                            usage: extract_usage_from_response(&raw_response).unwrap_or_default(),
+                        });
+                    }
                 }
             }
         }
@@ -483,7 +528,20 @@ impl AnthropicClient {
         system: Option<String>,
         config: &ApiConfig,
     ) -> Pin<Box<dyn Stream<Item = Result<StreamEvent>> + Send>> {
-        let headers = match self.build_headers(Some(&config.headers)) {
+        // 获取模型名称，决定使用哪个API端点
+        let default_model_json = serde_json::json!(DEFAULT_MODEL);
+        let model_value = config.body.get("model").unwrap_or(&default_model_json);
+        let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
+        let _is_deepseek = model_str.starts_with("deepseek");
+        
+        // 选择API端点
+        let api_url = if _is_deepseek {
+            DEEPSEEK_API_URL
+        } else {
+            ANTHROPIC_API_URL
+        };
+        
+        let headers = match self.build_headers(Some(&config.headers), _is_deepseek) {
             Ok(h) => h,
             Err(e) => return Box::pin(futures::stream::once(async move { Err(e) })),
         };
@@ -493,13 +551,13 @@ impl AnthropicClient {
 
         Box::pin(async_stream::try_stream! {
             let mut stream = client
-                .post(ANTHROPIC_API_URL)
+                .post(api_url)
                 .headers(headers)
                 .json(&request)
                 .send()
                 .await
                 .map_err(|e| ApiError::AnthropicError { 
-                    message: format!("Request failed: {}", e),
+                    message: format!("请求失败: {}", e),
                     type_: "request_failed".to_string(),
                     param: None,
                     code: None
@@ -640,4 +698,97 @@ fn extract_usage_from_response(raw_response: &str) -> Option<Usage> {
         }
     }
     None
+}
+
+// 添加解析Deepseek响应的函数
+fn parse_deepseek_response(raw_response: &str) -> Result<AnthropicResponse> {
+    // 尝试将响应解析为JSON对象
+    let json_value: serde_json::Value = serde_json::from_str(raw_response)
+        .map_err(|e| ApiError::AnthropicError {
+            message: format!("解析Deepseek响应JSON失败: {}", e),
+            type_: "parse_error".to_string(),
+            param: None,
+            code: None
+        })?;
+    
+    // 提取必要信息
+    let id = json_value.get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("deepseek_generated_id")
+        .to_string();
+    
+    let model = json_value.get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or(DEFAULT_MODEL)
+        .to_string();
+    
+    // 提取内容
+    let content_text = if let Some(choices) = json_value.get("choices").and_then(|v| v.as_array()) {
+        if let Some(first_choice) = choices.first() {
+            if let Some(message) = first_choice.get("message") {
+                if let Some(content) = message.get("content").and_then(|c| c.as_str()) {
+                    content.to_string()
+                } else {
+                    "".to_string()
+                }
+            } else {
+                "".to_string()
+            }
+        } else {
+            "".to_string()
+        }
+    } else {
+        "".to_string()
+    };
+    
+    // 提取用量信息
+    let usage = if let Some(usage_obj) = json_value.get("usage") {
+        let prompt_tokens = usage_obj.get("prompt_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+        
+        let completion_tokens = usage_obj.get("completion_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+        
+        Usage {
+            input_tokens: prompt_tokens,
+            output_tokens: completion_tokens,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+        }
+    } else {
+        Usage::default()
+    };
+    
+    // 提取停止原因
+    let stop_reason = if let Some(choices) = json_value.get("choices").and_then(|v| v.as_array()) {
+        if let Some(first_choice) = choices.first() {
+            first_choice.get("finish_reason")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    // 构造内容块
+    let content = vec![ContentBlock {
+        content_type: "text".to_string(),
+        text: content_text,
+    }];
+    
+    // 返回标准化的响应
+    Ok(AnthropicResponse {
+        id,
+        response_type: "message".to_string(),
+        role: "assistant".to_string(),
+        model,
+        content,
+        stop_reason,
+        stop_sequence: None,
+        usage,
+    })
 }

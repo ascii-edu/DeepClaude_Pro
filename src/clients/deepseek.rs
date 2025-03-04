@@ -67,7 +67,7 @@ use serde_json;
 
 //pub(crate) const DEEPSEEK_API_URL: &str = "https://api.siliconflow.cn/v1/chat/completions";
 pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
-const DEFAULT_MODEL: &str = "deepseek-r1-250120";
+pub const DEFAULT_MODEL: &str = "deepseek-r1-250120";
 //const DEFAULT_MODEL: &str = "deepseek-ai/DeepSeek-R1";
 
 /// Client for interacting with DeepSeek's AI models.

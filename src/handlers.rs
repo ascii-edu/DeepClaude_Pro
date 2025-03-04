@@ -27,6 +27,7 @@ use chrono::{Utc, Duration};
 use futures::StreamExt;
 use std::{sync::Arc, collections::HashMap};
 use tokio_stream::wrappers::ReceiverStream;
+use crate::clients::deepseek::DEFAULT_MODEL as DEEPSEEK_DEFAULT_MODEL;
 
 /// Application state shared across request handlers.
 ///
@@ -366,7 +367,7 @@ pub(crate) async fn chat(
         id: uuid::Uuid::new_v4().to_string(),
         object: "chat.completion".to_string(),
         created: beijing_timestamp,
-        model: "sonnet-3-7-sonnet-20250219".to_string(),
+        model: format!("{}_{}", DEEPSEEK_DEFAULT_MODEL, anthropic_response.model),
         choices: vec![Choice {
             index: 0,
             message: ResponseMessage {
