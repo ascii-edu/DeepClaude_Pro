@@ -70,78 +70,58 @@ DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度�
    ```
 
 ### 配置方法
-在项目根目录中创建一个`config.toml`文件：
+在项目根目录中编辑一个`.env`文件：
 ```toml
-[server]
-host = "127.0.0.1"
-port = 3000
+# api密钥，自己取的
+API_KEY=
+# deepseek的密钥
+DEEPSEEK_API_KEY=
+# claude模型的密钥
+ANTHROPIC_API_KEY=
+# 服务的端口
+PORT=1337
+```
 
-[pricing]
-# 配置用于使用情况跟踪的定价设置
+anthropic.rs文件中再去修改api地址，如果是openai格式的就替换DEEPSEEK_API_URL: &str变量后的“https://ark.cn-beijing.volces.com/api/v3/chat/completions”，如果是ANTHROPIC_API_URL这种v1/messages格式的就一样的替换ANTHROPIC_API_URL: &str =变量后跟的值，然后模型也对应替换就行。
+
+```rust
+pub(crate) const ANTHROPIC_API_URL: &str = "https://api.gptsapi.net/v1/messages";
+pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+// const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20241022";
+//const DEFAULT_MODEL: &str = "wild-3-5-sonnet-20241022";
+const DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
 ```
 
 ## API使用方法
+
 请参阅[API文档](https://deepclaude.chat)
 
-### 基本示例
+### 非流式输出示例
+
 ```python
-import requests
-
-response = requests.post(
-    "http://127.0.0.1:1337/",
-    headers={
-        "X-DeepSeek-API-Token": "<你的深度求索API密钥>",
-        "X-Anthropic-API-Token": "<你的Anthropic API密钥>"
-    },
-    json={
-        "messages": [
-            {"role": "user", "content": "单词“strawberry”中有多少个“r”？"}
-        ]
-    }
-)
-
-print(response.json())
+curl -X POST "http://127.0.0.1:1337/v1/chat/completions" \
+  -H "Authorization: Bearer xyh110" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepclaude",
+    "messages": [
+        {"role": "user", "content": "你是谁"}
+    ]
+}'
 ```
 
 ### 流式传输示例
 ```python
-import asyncio
-import json
-import httpx
-
-async def stream_response():
-    async with httpx.AsyncClient() as client:
-        async with client.stream(
-            "POST",
-            "http://127.0.0.1:1337/",
-            headers={
-                "X-DeepSeek-API-Token": "<你的深度求索API密钥>",
-                "X-Anthropic-API-Token": "<你的Anthropic API密钥>"
-            },
-            json={
-                "stream": True,
-                "messages": [
-                    {"role": "user", "content": "单词“strawberry”中有多少个“r”？"}
-                ]
-            }
-        ) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if line:
-                    if line.startswith('data: '):
-                        data = line[6:]
-                        try:
-                            parsed_data = json.loads(data)
-                            if 'content' in parsed_data:
-                                content = parsed_data.get('content', '')[0]['text']
-                                print(content, end='', flush=True)
-                            else:
-                                print(data, flush=True)
-                        except json.JSONDecodeError:
-                            pass
-
-if __name__ == "__main__":
-    asyncio.run(stream_response())
+curl -X POST "http://127.0.0.1:1337/v1/chat/completions" \
+  -H "Authorization: Bearer xyh110" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepclaude",
+    "messages": [
+        {"role": "user", "content": "你是谁"}
+    ],
+    "stream": true
+}'
 ```
 
 ## 配置选项
