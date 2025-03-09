@@ -32,7 +32,17 @@
 - [许可证](#许可证)
 - [鸣谢](#鸣谢)
 
+<details>
+<summary><strong>更新日志：</strong></summary> 
+<div>
+2025-03-05.1: 更改docker compose配置, 使用volume将容器配置文件绑定至本地, 避免重启容器时丢失配置. 同时设置失败自动重启.
+2025-03-09: 更新 1.0 版本，支持chatbox和cherrystudio
+
+</div>
+</details>
+
 ## 概述
+
 DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度求索R1的思维链（CoT）推理能力与人工智能公司Anthropic的克劳德模型在创造力和代码生成方面的优势相结合。它提供了一个统一的接口，让你在完全掌控自己的API密钥和数据的同时，充分利用这两个模型的优势。
 
 ## 功能特性
@@ -143,7 +153,20 @@ API支持通过请求体进行广泛的配置：
 }
 ```
 
+## 配置chatbox和cherrystudio
+
+密钥都是前面.env中配置的API_KEY=xxx，那么这里就填xxx
+
+**chatbox**
+
+<img src="picture/chatbox.png" width="600" style="zoom: 200%;" >
+
+**cherrystudio**
+
+<img src="picture/cherrystudio.png" width="600" style="zoom: 200%;" >
+
 ## 自主托管
+
 DeepClaude可以在你自己的基础设施上进行自主托管。请按照以下步骤操作：
 1. 配置环境变量或`config.toml`文件
 2. 构建Docker镜像或从源代码编译
