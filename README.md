@@ -35,9 +35,7 @@
 <details>
 <summary><strong>更新日志：</strong></summary> 
 <div>
-2025-03-05.1: 更改docker compose配置, 使用volume将容器配置文件绑定至本地, 避免重启容器时丢失配置. 同时设置失败自动重启.
 2025-03-09: 更新 1.0 版本，支持chatbox和cherrystudio
-
 </div>
 </details>
 
