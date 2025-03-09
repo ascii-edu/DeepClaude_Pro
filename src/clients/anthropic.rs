@@ -47,6 +47,7 @@ use std::{collections::HashMap, pin::Pin};
 use futures::StreamExt;
 use serde_json;
 use tracing;
+use dotenv;
 
 pub(crate) const ANTHROPIC_API_URL: &str = "https://api.gptsapi.net/v1/messages";
 pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
@@ -54,8 +55,8 @@ pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api
 /// pub(crate) const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages
 // const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20241022";
 //const DEFAULT_MODEL: &str = "wild-3-5-sonnet-20241022";
-//const DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
-const DEFAULT_MODEL: &str = "deepseek-v3-241226";
+const DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
+//const DEFAULT_MODEL: &str = "deepseek-v3-241226";
 //const DEFAULT_MODEL: &str = "claude-3-7-sonnet-20250219";
 /// Client for interacting with Anthropic's Claude models.
 ///
@@ -97,7 +98,9 @@ pub struct ContentBlock {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Usage {
+    #[serde(default)]
     pub input_tokens: u32,
+    #[serde(default)]
     pub output_tokens: u32,
     #[serde(default)]
     pub cache_creation_input_tokens: u32,
@@ -161,6 +164,7 @@ pub enum StreamEvent {
     #[allow(dead_code)]
     MessageDelta {
         delta: MessageDelta,
+        #[serde(default)]
         usage: Option<Usage>,
     },
     #[serde(rename = "message_stop")]
@@ -219,22 +223,45 @@ impl AnthropicClient {
     pub(crate) fn build_headers(&self, custom_headers: Option<&HashMap<String, String>>, is_deepseek: bool) -> Result<HeaderMap> {
         let mut headers = HeaderMap::new();
         
-        // 根据API类型设置不同的认证头
+        // 根据API类型添加不同的认证头
         if is_deepseek {
-            // Deepseek API使用Bearer认证
+            // DeepSeek API认证
+            let deepseek_token = std::env::var("DEEPSEEK_API_KEY")
+                .map_err(|_| ApiError::Internal { 
+                    message: "未设置DEEPSEEK_API_KEY环境变量".to_string() 
+                })?;
+            
             headers.insert(
                 "Authorization",
-                format!("Bearer {}", self.api_token)
+                format!("Bearer {}", deepseek_token)
                     .parse()
                     .map_err(|e| ApiError::Internal { 
                         message: format!("无效的Authorization头: {}", e) 
                     })?,
             );
         } else {
-            // Anthropic API使用x-api-key认证
+            // Anthropic API认证
+            // 尝试从环境变量获取API密钥
+            let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            tracing::info!("当前工作目录: {:?}", current_dir);
+            
+            let env_content = std::fs::read_to_string(current_dir.join(".env"))
+                .map_err(|e| ApiError::Internal { 
+                    message: format!("无法读取.env文件: {}", e) 
+                })?;
+                
+            let anthropic_token = env_content
+                .lines()
+                .find(|line| line.starts_with("ANTHROPIC_API_KEY="))
+                .and_then(|line| line.split('=').nth(1))
+                .map(|value| value.trim().trim_matches('"').to_string())
+                .ok_or_else(|| ApiError::Internal { 
+                    message: "未在.env文件中找到ANTHROPIC_API_KEY".to_string() 
+                })?;
+            
             headers.insert(
                 "x-api-key",
-                self.api_token
+                anthropic_token
                     .parse()
                     .map_err(|e| ApiError::Internal { 
                         message: format!("无效的API令牌: {}", e) 
@@ -316,7 +343,7 @@ impl AnthropicClient {
         let default_model_json = serde_json::json!(DEFAULT_MODEL);
         let model_value = config.body.get("model").unwrap_or(&default_model_json);
         let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
-        let _is_deepseek = model_str.starts_with("deepseek");
+        let _is_deepseek = model_str.starts_with("deepseek") || model_str == "deepclaude";
         
         let default_max_tokens = if let Some(model_str) = model_value.as_str() {
             if model_str.contains("claude-3-opus") {
@@ -419,7 +446,7 @@ impl AnthropicClient {
         let default_model_json = serde_json::json!(DEFAULT_MODEL);
         let model_value = config.body.get("model").unwrap_or(&default_model_json);
         let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
-        let _is_deepseek = model_str.starts_with("deepseek");
+        let _is_deepseek = model_str.starts_with("deepseek") || model_str == "deepclaude";
         
         // 选择API端点
         let api_url = if _is_deepseek {
@@ -522,17 +549,17 @@ impl AnthropicClient {
     /// - The API request fails
     /// - Stream processing encounters an error
     /// - Response events cannot be parsed
-    pub fn chat_stream(
-        &self,
+    pub fn chat_stream<'a>(
+        &'a self,
         messages: Vec<Message>,
         system: Option<String>,
-        config: &ApiConfig,
-    ) -> Pin<Box<dyn Stream<Item = Result<StreamEvent>> + Send>> {
+        config: &'a ApiConfig,
+    ) -> Pin<Box<dyn Stream<Item = Result<StreamEvent>> + Send + 'a>> {
         // 获取模型名称，决定使用哪个API端点
         let default_model_json = serde_json::json!(DEFAULT_MODEL);
         let model_value = config.body.get("model").unwrap_or(&default_model_json);
         let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
-        let _is_deepseek = model_str.starts_with("deepseek");
+        let _is_deepseek = model_str.starts_with("deepseek") || model_str == "deepclaude";
         
         // 选择API端点
         let api_url = if _is_deepseek {
@@ -541,39 +568,81 @@ impl AnthropicClient {
             ANTHROPIC_API_URL
         };
         
+        tracing::info!("使用API端点: {}, 模型: {}", api_url, model_str);
+        
         let headers = match self.build_headers(Some(&config.headers), _is_deepseek) {
             Ok(h) => h,
             Err(e) => return Box::pin(futures::stream::once(async move { Err(e) })),
         };
 
+        // 克隆需要在异步流中使用的值
+        let messages = messages.clone();
+        let system = system.clone();
         let request = self.build_request(messages, system, true, config);
         let client = self.client.clone();
 
-        Box::pin(async_stream::try_stream! {
-            let mut stream = client
+        Box::pin(async_stream::stream! {
+            let response = match client
                 .post(api_url)
                 .headers(headers)
                 .json(&request)
                 .send()
                 .await
-                .map_err(|e| ApiError::AnthropicError { 
-                    message: format!("请求失败: {}", e),
-                    type_: "request_failed".to_string(),
-                    param: None,
-                    code: None
-                })?
-                .bytes_stream();
-
-            let mut data = String::new();
+            {
+                Ok(resp) => resp,
+                Err(e) => {
+                    yield Err(ApiError::AnthropicError { 
+                        message: format!("请求失败: {}", e),
+                        type_: "request_failed".to_string(),
+                        param: None,
+                        code: None
+                    });
+                    return;
+                }
+            };
             
-            while let Some(chunk) = stream.next().await {
-                let chunk = chunk.map_err(|e| ApiError::AnthropicError { 
-                    message: format!("Stream error: {}", e),
-                    type_: "stream_error".to_string(),
+            let status = response.status();
+            tracing::debug!("流式响应状态码: {}", status);
+            
+            if !status.is_success() {
+                let error_text = response.text().await.unwrap_or_else(|_| "无法获取错误详情".to_string());
+                tracing::error!("API返回错误: {} - {}", status, error_text);
+                yield Err(ApiError::AnthropicError { 
+                    message: format!("API返回错误: {} - {}", status, error_text),
+                    type_: "api_error".to_string(),
                     param: None,
-                    code: None
-                })?;
-                data.push_str(&String::from_utf8_lossy(&chunk));
+                    code: Some(status.as_u16().to_string())
+                });
+                return;
+            }
+            
+            let mut stream = response.bytes_stream();
+            let mut data = String::new();
+            let mut content_buffer = String::new();
+            let mut _has_content = false;
+            let mut stream_ended = false;
+            
+            while let Some(chunk_result) = stream.next().await {
+                // 如果流已经结束，不再处理新的数据块
+                if stream_ended {
+                    break;
+                }
+                
+                let chunk = match chunk_result {
+                    Ok(c) => c,
+                    Err(e) => {
+                        yield Err(ApiError::AnthropicError { 
+                            message: format!("Stream error: {}", e),
+                            type_: "stream_error".to_string(),
+                            param: None,
+                            code: None
+                        });
+                        return;
+                    }
+                };
+                
+                let chunk_str = String::from_utf8_lossy(&chunk);
+                data.push_str(&chunk_str);
 
                 let mut start = 0;
                 while let Some(end) = data[start..].find("\n\n") {
@@ -581,13 +650,45 @@ impl AnthropicClient {
                     let event_data = &data[start..end];
                     start = end + 2;
 
-                    if event_data.starts_with("event: ") {
-                        let _event_line = &event_data["event: ".len()..];
-                        if let Some(data_line) = event_data.lines().nth(1) {
-                            if data_line.starts_with("data: ") {
-                                let json_data = &data_line["data: ".len()..];
-                                if let Ok(event) = serde_json::from_str::<StreamEvent>(json_data) {
-                                    yield event;
+                    let raw_event = event_data.trim();
+                    if raw_event.is_empty() {
+                        continue;
+                    }
+
+                    // 解析事件数据
+                    if raw_event.starts_with("data: ") {
+                        let json_str = &raw_event["data: ".len()..];
+                        
+                        // 检查是否是结束标记
+                        if json_str == "[DONE]" {
+                            stream_ended = true;
+                            break;
+                        }
+                        
+                        match serde_json::from_str::<StreamEvent>(json_str) {
+                            Ok(event) => {
+                                _has_content = true;
+                                match &event {
+                                    StreamEvent::ContentBlockDelta { delta, .. } => {
+                                        content_buffer.push_str(&delta.text);
+                                    }
+                                    StreamEvent::MessageStop => {
+                                        stream_ended = true;
+                                    }
+                                    _ => {}
+                                }
+                                yield Ok(event);
+                            }
+                            Err(e) => {
+                                // 只记录关键错误，不记录所有解析失败
+                                if !json_str.contains("ping") && !json_str.contains("HEARTBEAT") {
+                                    tracing::error!("解析事件JSON失败: {} - {}", e, json_str);
+                                }
+                                // 不要为所有解析错误生成错误事件
+                                if json_str != "[DONE]" && !json_str.contains("HEARTBEAT") {
+                                    yield Err(ApiError::Internal {
+                                        message: format!("Failed to parse event JSON: {}", e),
+                                    });
                                 }
                             }
                         }
@@ -596,6 +697,11 @@ impl AnthropicClient {
 
                 if start > 0 {
                     data = data[start..].to_string();
+                }
+                
+                // 如果流已经结束，不再继续处理
+                if stream_ended {
+                    break;
                 }
             }
         })

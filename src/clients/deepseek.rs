@@ -130,6 +130,7 @@ pub struct StreamChoice {
 pub struct StreamDelta {
     pub role: Option<String>,
     pub content: Option<String>,
+    #[serde(rename = "reasoning_content", default)]
     pub reasoning_content: Option<String>,
 }
 
@@ -141,6 +142,9 @@ pub struct StreamResponse {
     pub model: String,
     pub choices: Vec<StreamChoice>,
     pub usage: Option<DeepSeekUsage>,
+    #[serde(default)]
+    pub service_tier: String,
+    #[serde(default)]
     pub system_fingerprint: String,
 }
 
@@ -384,39 +388,77 @@ impl DeepSeekClient {
         messages: Vec<Message>,
         config: &ApiConfig,
     ) -> Pin<Box<dyn Stream<Item = Result<StreamResponse>> + Send>> {
-        let headers = match self.build_headers(Some(&config.headers)) {
-            Ok(h) => h,
-            Err(e) => return Box::pin(futures::stream::once(async move { Err(e) })),
-        };
-
         let request = self.build_request(messages, true, config);
         let client = self.client.clone();
+        let headers = match self.build_headers(None) {
+            Ok(h) => h,
+            Err(e) => {
+                return Box::pin(futures::stream::once(async move {
+                    Err(e)
+                }));
+            }
+        };
 
-        Box::pin(async_stream::try_stream! {
-            let mut stream = client
+        Box::pin(async_stream::stream! {
+            let response = match client
                 .post(DEEPSEEK_API_URL)
                 .headers(headers)
                 .json(&request)
                 .send()
                 .await
-                .map_err(|e| ApiError::DeepSeekError { 
-                    message: format!("Request failed: {}", e),
-                    type_: "request_failed".to_string(),
-                    param: None,
-                    code: None
-                })?
-                .bytes_stream();
+            {
+                Ok(resp) => resp,
+                Err(e) => {
+                    yield Err(ApiError::DeepSeekError { 
+                        message: format!("请求失败: {}", e),
+                        type_: "request_failed".to_string(),
+                        param: None,
+                        code: None
+                    });
+                    return;
+                }
+            };
 
-            let mut data = String::new();
-            
-            while let Some(chunk) = stream.next().await {
-                let chunk = chunk.map_err(|e| ApiError::DeepSeekError { 
-                    message: format!("Stream error: {}", e),
-                    type_: "stream_error".to_string(),
+            let status = response.status();
+            tracing::debug!("DeepSeek流式响应状态码: {}", status);
+
+            if !status.is_success() {
+                let error = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "未知错误".to_string());
+                tracing::error!("DeepSeek API返回错误: {}", error);
+                yield Err(ApiError::DeepSeekError { 
+                    message: error,
+                    type_: "api_error".to_string(),
                     param: None,
                     code: None
-                })?;
-                data.push_str(&String::from_utf8_lossy(&chunk));
+                });
+                return;
+            }
+
+            let mut stream = response.bytes_stream();
+            let mut data = String::new();
+            let mut content_buffer = String::new();
+            let mut reasoning_buffer = String::new();
+            
+            while let Some(chunk_result) = stream.next().await {
+                let chunk = match chunk_result {
+                    Ok(c) => c,
+                    Err(e) => {
+                        yield Err(ApiError::DeepSeekError { 
+                            message: format!("流处理错误: {}", e),
+                            type_: "stream_error".to_string(),
+                            param: None,
+                            code: None
+                        });
+                        return;
+                    }
+                };
+                
+                let chunk_str = String::from_utf8_lossy(&chunk);
+                tracing::debug!("收到DeepSeek原始数据块: {}", chunk_str);
+                data.push_str(&chunk_str);
 
                 let mut start = 0;
                 while let Some(end) = data[start..].find("\n\n") {
@@ -426,14 +468,85 @@ impl DeepSeekClient {
                     
                     if line.starts_with("data: ") {
                         let json_data = &line["data: ".len()..];
-                        if let Ok(response) = serde_json::from_str::<StreamResponse>(json_data) {
-                            yield response;
+                        
+                        if json_data == "[DONE]" {
+                            tracing::debug!("DeepSeek流结束，内容状态: content={}, reasoning={}", 
+                                !content_buffer.is_empty(), !reasoning_buffer.is_empty());
+                            
+                            // 不再发送最终的推理内容，避免重复
+                            
+                            // 发送最终的普通内容（如果有）
+                            if !content_buffer.is_empty() {
+                                yield Ok(StreamResponse {
+                                    id: "deepseek_generated_id".to_string(),
+                                    object: "chat.completion.chunk".to_string(),
+                                    created: chrono::Utc::now().timestamp(),
+                                    model: DEFAULT_MODEL.to_string(),
+                                    choices: vec![StreamChoice {
+                                        index: 0,
+                                        delta: StreamDelta {
+                                            role: None,
+                                            content: Some(content_buffer.clone()),
+                                            reasoning_content: None,
+                                        },
+                                        logprobs: None,
+                                        finish_reason: Some("stop".to_string()),
+                                    }],
+                                    usage: None,
+                                    service_tier: "default".to_string(),
+                                    system_fingerprint: "".to_string(),
+                                });
+                            }
+                            break;
+                        }
+                        
+                        match serde_json::from_str::<StreamResponse>(json_data) {
+                            Ok(mut response) => {
+                                if let Some(choice) = response.choices.first_mut() {
+                                    // 处理推理内容
+                                    if let Some(reasoning) = &choice.delta.reasoning_content {
+                                        if !reasoning.is_empty() {
+                                            reasoning_buffer.push_str(reasoning);
+                                            //tracing::debug!("收集到推理内容: {}", reasoning);
+                                        }
+                                    }
+                                    
+                                    // 处理普通内容
+                                    if let Some(content) = &choice.delta.content {
+                                        if !content.is_empty() {
+                                            content_buffer.push_str(content);
+                                            //tracing::debug!("收集到普通内容: {}", content);
+                                        }
+                                    }
+                                }
+                                
+                                yield Ok(response);
+                            }
+                            Err(e) => {
+                                tracing::warn!("解析StreamResponse失败: {}", e);
+                                
+                                // 尝试解析为通用JSON
+                                if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_data) {
+                                    if let Some(error) = value.get("error") {
+                                        yield Err(ApiError::DeepSeekError {
+                                            message: error["message"].as_str().unwrap_or("未知错误").to_string(),
+                                            type_: error["type"].as_str().unwrap_or("unknown").to_string(),
+                                            param: error["param"].as_str().map(|s| s.to_string()),
+                                            code: error["code"].as_str().map(|s| s.to_string()),
+                                        });
+                                        return;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-
-                if start > 0 {
+                
+                // 更新未处理数据
+                if start < data.len() {
                     data = data[start..].to_string();
+                } else {
+                    data.clear();
                 }
             }
         })
