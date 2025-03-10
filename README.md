@@ -4,9 +4,9 @@
 <img src="frontend/public/deepclaude.png" width="300">
 
 <div align="left">
-This project is upgraded from the official Rust version of [deepclaude](https://github.com/getAsterisk/deepclaude). It supports the return results in OpenAI format and can be used in chatbox and cherrystudio. At the same time, it allows for relatively free replacement of third-party APIs of Claude or DeepSeek to achieve other model combinations such as deepclaude or deepgeminipro.
+This project is upgraded from the official Rust version of <a href="https://github.com/getAsterisk/deepclaude">deepclaude</a>. It supports the return results in OpenAI format and can be used in chatbox and cherrystudio. At the same time, it allows for relatively free replacement of third-party APIs of Claude or DeepSeek to achieve other model combinations such as deepclaude or deepgeminipro.
 
-With the help of the API, this project can combine the reasoning ability of DeepSeek R1 with the creativity and code generation ability of Claude. As for the effectiveness, you can check the evaluation results of my other project, [the benchmark of deepclaude](https://github.com/yuanhang110/DeepClaude_Benchmark).
+With the help of the API, this project can combine the reasoning ability of DeepSeek R1 with the creativity and code generation ability of Claude. As for the effectiveness, you can check the evaluation results of my other project, <a href="https://github.com/yuanhang110/DeepClaude_Benchmark">deepclaude's benchmark</a>.
 
 In the future, I will further explore diverse model combinations and prompt engineering to optimize this project. The feature of this project is that if there are code modifications related to process or engineering optimization, the benchmark will be tested synchronously to ensure that everyone can use an API with a real effectiveness improvement. 
 
