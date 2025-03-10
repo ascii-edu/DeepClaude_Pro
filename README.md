@@ -11,7 +11,6 @@
 后续我将进一步尝试模型多样化组合和提示词工程去优化这个项目，这个项目特点是如果有流程或者工程优化相关的代码修改，会同步的测试benchmark，确保大家可以用上真实有效果提升的api。
 </div>
 
-
 [![Rust](https://img.shields.io/badge/rust-v1.75%2B-orange)](https://www.rust-lang.org/)
 [![API Status](https://img.shields.io/badge/API-Stable-green)](https://deepclaude.asterisk.so)
 
@@ -21,9 +20,12 @@
 <summary><strong>更新日志：</strong></summary> 
 <div>
 2025-03-11: 更新 1.0.1版本，修复cherrystudio输出问题
+</div>
+<div>
 2025-03-09: 更新 1.0 版本，支持chatbox和cherrystudio
 </div>
 </details>
+
 
 
 ## 概述
