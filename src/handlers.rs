@@ -628,17 +628,8 @@ pub(crate) async fn chat_stream(
                                 tracing::error!("发送完成事件失败: {}", e);
                             }
                             
-                            // 发送 [DONE] 标记作为特殊的 SSE 事件，确保 data 字段包含有效的 JSON
-                            let done_data = serde_json::json!({
-                                "id": stream_id,
-                                "object": "chat.completion.chunk",
-                                "created": created,
-                                "model": DEEPSEEK_DEFAULT_MODEL,
-                                "choices": [],
-                                "done": true
-                            }).to_string();
-                            
-                            if let Err(e) = tx.send(Ok(Event::default().event("done").data(done_data))).await {
+                            // 发送 [DONE] 标记作为特殊的 SSE 事件
+                            if let Err(e) = tx.send(Ok(Event::default().data("[DONE]"))).await {
                                 tracing::error!("发送DONE标记失败: {}", e);
                             }
                             break;

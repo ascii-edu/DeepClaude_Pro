@@ -1,10 +1,13 @@
 <div align="center">
-
-<h1>DeepClaude_Pro 🐬🧠</h1>
+<h1>DeepClaude_Pro(OpenAI Compatible) 🐬🧠</h1>
 
 <img src="frontend/public/deepclaude.png" width="300">
 
-借助统一的应用程序编程接口（API）和聊天界面，发挥深度求索（DeepSeek）R1的推理能力以及克劳德（Claude）的创造力和代码生成能力。
+该项目是基于<a href="https://github.com/getAsterisk/deepclaude">deepclaude rust官方</a>版本升级而来，支持了OpenAI格式的返回结果，可以用于chatbox和cherrystudio，同时可以比较自由的替换claude 或者deepseek的第三方api来实现deepclaude或者deepgeminipro等其他模型组合。
+
+借助API，该项目可以结合DeepSeek R1的推理能力以及Claude的创造力和代码生成能力。至于效果，可以看我另一个项目的评测结果<a href="https://github.com/yuanhang110/DeepClaude_Benchmark">deepclaude的benchmark</a>。
+
+后续我将进一步尝试模型多样化组合和提示词工程去优化这个项目，这个项目特点是如果有流程或者工程优化相关的代码修改，会同步的测试benchmark，确保大家可以用上真实有效果提升的api。
 
 [![Rust](https://img.shields.io/badge/rust-v1.75%2B-orange)](https://www.rust-lang.org/)
 [![API Status](https://img.shields.io/badge/API-Stable-green)](https://deepclaude.asterisk.so)
