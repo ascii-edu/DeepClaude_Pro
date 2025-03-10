@@ -3,44 +3,28 @@
 
 <img src="frontend/public/deepclaude.png" width="300">
 
+<div align="left">
 该项目是基于<a href="https://github.com/getAsterisk/deepclaude">deepclaude rust官方</a>版本升级而来，支持了OpenAI格式的返回结果，可以用于chatbox和cherrystudio，同时可以比较自由的替换claude 或者deepseek的第三方api来实现deepclaude或者deepgeminipro等其他模型组合。
 
 借助API，该项目可以结合DeepSeek R1的推理能力以及Claude的创造力和代码生成能力。至于效果，可以看我另一个项目的评测结果<a href="https://github.com/yuanhang110/DeepClaude_Benchmark">deepclaude的benchmark</a>。
 
 后续我将进一步尝试模型多样化组合和提示词工程去优化这个项目，这个项目特点是如果有流程或者工程优化相关的代码修改，会同步的测试benchmark，确保大家可以用上真实有效果提升的api。
+</div>
+
 
 [![Rust](https://img.shields.io/badge/rust-v1.75%2B-orange)](https://www.rust-lang.org/)
 [![API Status](https://img.shields.io/badge/API-Stable-green)](https://deepclaude.asterisk.so)
 
 </div>
 
-
-
-
-## 目录
-- [概述](#概述)
-- [功能特性](#功能特性)
-- [为什么选择R1和克劳德？](#为什么选择r1和克劳德)
-- [快速入门](#快速入门)
-  - [先决条件](#先决条件)
-  - [安装步骤](#安装步骤)
-  - [配置方法](#配置方法)
-- [API使用方法](#api使用方法)
-  - [基本示例](#基本示例)
-  - [流式传输示例](#流式传输示例)
-- [配置选项](#配置选项)
-- [自主托管](#自主托管)
-- [安全性](#安全性)
-- [贡献代码](#贡献代码)
-- [许可证](#许可证)
-- [鸣谢](#鸣谢)
-
 <details>
 <summary><strong>更新日志：</strong></summary> 
 <div>
+2025-03-11: 更新 1.0.1版本，修复cherrystudio输出问题
 2025-03-09: 更新 1.0 版本，支持chatbox和cherrystudio
 </div>
 </details>
+
 
 ## 概述
 
