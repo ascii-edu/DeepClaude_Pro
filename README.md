@@ -26,8 +26,6 @@
 </div>
 </details>
 
-
-
 ## 概述
 
 DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度求索R1的思维链（CoT）推理能力与人工智能公司Anthropic的克劳德模型在创造力和代码生成方面的优势相结合。它提供了一个统一的接口，让你在完全掌控自己的API密钥和数据的同时，充分利用这两个模型的优势。
@@ -163,6 +161,10 @@ DeepClaude可以在你自己的基础设施上进行自主托管。请按照以�
 - 不存储或记录数据
 - 采用自带密钥（BYOK）架构
 - 定期进行安全审计和更新
+
+# 星星记录
+
+[![Star History Chart](https://api.star-history.com/svg?repos=yuanhang110/DeepClaude_Pro&type=Date)](https://star-history.com/#ErlichLiu/DeepClaude&Date)
 
 ## 贡献代码
 我们欢迎贡献！请参阅我们的[贡献指南](CONTRIBUTING.md)，了解有关以下方面的详细信息：
