@@ -101,7 +101,7 @@ export function MarkdownEditor({
           onClick={handleSubmit}
           className="h-[40px] px-4"
         >
-          Send
+          发送
         </Button>
       </div>
 
@@ -109,7 +109,7 @@ export function MarkdownEditor({
         <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="h-4 w-4" />
-            Compose Prompt
+            编写Prompt
           </DialogTitle>
           <div className="relative flex-1 mt-4">
             <Textarea

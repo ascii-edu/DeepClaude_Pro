@@ -64,10 +64,23 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, pin::Pin};
 use futures::StreamExt;
 use serde_json;
+use std::env;
 
-//pub(crate) const DEEPSEEK_API_URL: &str = "https://api.siliconflow.cn/v1/chat/completions";
+// 从环境变量中读取DeepSeek API URL，如果未设置则使用默认值
+pub(crate) fn get_deepseek_api_url() -> String {
+    env::var("DEEPSEEK_OPENAI_TYPE_API_URL").unwrap_or_else(|_| String::from("https://ark.cn-beijing.volces.com/api/v3/chat/completions"))
+}
+
+// 从环境变量中读取DeepSeek模型名称，如果未设置则使用默认值
+pub(crate) fn get_deepseek_default_model() -> String {
+    env::var("DEEPSEEK_DEFAULT_MODEL").unwrap_or_else(|_| String::from("deepseek-r1-250120"))
+}
+
+// 为了向后兼容，保留这些常量，但它们现在使用函数获取值
+#[allow(dead_code)]
 pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
-pub const DEFAULT_MODEL: &str = "deepseek-r1-250120";
+#[allow(dead_code)]
+pub const DEEPSEEK_DEFAULT_MODEL: &str = "deepseek-r1-250120";
 //const DEFAULT_MODEL: &str = "deepseek-ai/DeepSeek-R1";
 
 /// Client for interacting with DeepSeek's AI models.
@@ -259,11 +272,12 @@ impl DeepSeekClient {
     /// A `DeepSeekRequest` object configured with the provided parameters and defaults
     pub(crate) fn build_request(&self, messages: Vec<Message>, stream: bool, config: &ApiConfig) -> DeepSeekRequest {
         // Create a base request with required fields
+        let default_model = get_deepseek_default_model();
         let mut request_value = serde_json::json!({
             "messages": messages,
             "stream": stream,
             // Set defaults only if not provided in config
-            "model": config.body.get("model").unwrap_or(&serde_json::json!(DEFAULT_MODEL)),
+            "model": config.body.get("model").unwrap_or(&serde_json::json!(default_model)),
             "max_tokens": config.body.get("max_tokens").unwrap_or(&serde_json::json!(8192)),
             "temperature": config.body.get("temperature").unwrap_or(&serde_json::json!(1.0)),
             "response_format": {
@@ -321,7 +335,7 @@ impl DeepSeekClient {
 
         let response = self
             .client
-            .post(DEEPSEEK_API_URL)
+            .post(get_deepseek_api_url())
             .headers(headers)
             .json(&request)
             .send()
@@ -401,7 +415,7 @@ impl DeepSeekClient {
 
         Box::pin(async_stream::stream! {
             let response = match client
-                .post(DEEPSEEK_API_URL)
+                .post(get_deepseek_api_url())
                 .headers(headers)
                 .json(&request)
                 .send()
@@ -477,11 +491,12 @@ impl DeepSeekClient {
                             
                             // 发送最终的普通内容（如果有）
                             if !content_buffer.is_empty() {
+                                let default_model = get_deepseek_default_model();
                                 yield Ok(StreamResponse {
                                     id: "deepseek_generated_id".to_string(),
                                     object: "chat.completion.chunk".to_string(),
                                     created: chrono::Utc::now().timestamp(),
-                                    model: DEFAULT_MODEL.to_string(),
+                                    model: default_model,
                                     choices: vec![StreamChoice {
                                         index: 0,
                                         delta: StreamDelta {

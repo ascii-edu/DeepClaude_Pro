@@ -28,7 +28,7 @@ use chrono::{Utc, Duration};
 use futures::StreamExt;
 use std::{sync::Arc, collections::HashMap};
 use tokio_stream::wrappers::ReceiverStream;
-use crate::clients::deepseek::DEFAULT_MODEL as DEEPSEEK_DEFAULT_MODEL;
+use crate::clients::deepseek::get_deepseek_default_model;
 use dotenv::dotenv;
 
 /// Application state shared across request handlers.
@@ -60,10 +60,21 @@ impl AppState {
 /// 从环境变量中获取API tokens
 #[allow(dead_code)]
 fn get_env_api_tokens() -> Option<(String, String)> {
-    dotenv().ok(); // 确保.env文件被加载
-    match (std::env::var("DEEPSEEK_API_KEY"), std::env::var("ANTHROPIC_API_KEY")) {
-        (Ok(deepseek), Ok(anthropic)) => Some((deepseek, anthropic)),
-        _ => None
+    // 尝试加载.env文件，但即使失败也继续尝试获取环境变量
+    // 因为环境变量可能已经通过其他方式设置（如系统环境变量或命令行）
+    let _ = dotenv();
+    
+    // 首先尝试直接从环境变量获取
+    let deepseek = std::env::var("DEEPSEEK_API_KEY");
+    let anthropic = std::env::var("ANTHROPIC_API_KEY");
+    
+    match (deepseek, anthropic) {
+        (Ok(d), Ok(a)) => Some((d, a)),
+        _ => {
+            // 如果获取失败，记录日志但不中断程序
+            tracing::debug!("无法从环境变量获取API密钥，将尝试从请求头获取");
+            None
+        }
     }
 }
 
@@ -84,38 +95,45 @@ fn validate_bearer_token(token: &str) -> bool {
     std::env::var("API_TOKEN").map(|env_token| token == env_token).unwrap_or(false)
 }
 
-/// 修改extract_api_tokens函数以优先使用环境变量
-fn extract_api_tokens(
-    _headers: &axum::http::HeaderMap,
-) -> Result<(String, String)> {
-    // 读取.env文件
-    let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let env_content = std::fs::read_to_string(current_dir.join(".env"))
-        .map_err(|e| ApiError::MissingHeader { 
-            header: format!("无法读取.env文件: {}", e)
-        })?;
-    
-    // 提取 DEEPSEEK_API_KEY
-    let deepseek_token = env_content
-        .lines()
-        .find(|line| line.starts_with("DEEPSEEK_API_KEY="))
-        .and_then(|line| line.split('=').nth(1))
-        .map(|value| value.trim().trim_matches('"').to_string())
-        .ok_or_else(|| ApiError::MissingHeader { 
-            header: "未在.env文件中找到DEEPSEEK_API_KEY".to_string() 
-        })?;
-    
-    // 提取 ANTHROPIC_API_KEY
-    let anthropic_token = env_content
-        .lines()
-        .find(|line| line.starts_with("ANTHROPIC_API_KEY="))
-        .and_then(|line| line.split('=').nth(1))
-        .map(|value| value.trim().trim_matches('"').to_string())
-        .ok_or_else(|| ApiError::MissingHeader { 
-            header: "未在.env文件中找到ANTHROPIC_API_KEY".to_string() 
-        })?;
-    
-    Ok((deepseek_token, anthropic_token))
+/// 从请求头中提取API tokens
+fn extract_api_tokens(headers: &axum::http::HeaderMap) -> Result<(String, String)> {
+    // 首先尝试从请求头中获取
+    let deepseek_token = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .map(String::from);
+
+    let anthropic_token = headers
+        .get("X-Anthropic-API-Token")
+        .and_then(|h| h.to_str().ok())
+        .map(String::from);
+
+    // 如果请求头中有完整的token，直接返回
+    if let (Some(deepseek), Some(anthropic)) = (deepseek_token.clone(), anthropic_token.clone()) {
+        tracing::debug!("成功从请求头获取API密钥");
+        return Ok((deepseek, anthropic));
+    }
+
+    // 如果请求头中没有完整的token，尝试从环境变量获取
+    if let Some((deepseek, anthropic)) = get_env_api_tokens() {
+        tracing::debug!("成功从环境变量获取API密钥");
+        return Ok((deepseek, anthropic));
+    }
+
+    // 如果都没有找到，返回详细的错误信息
+    let mut missing_headers = Vec::new();
+    if deepseek_token.is_none() {
+        missing_headers.push("Authorization");
+    }
+    if anthropic_token.is_none() {
+        missing_headers.push("X-Anthropic-API-Token");
+    }
+
+    Err(ApiError::MissingHeader {
+        header: format!("缺少必要的认证信息：{}。请确保在请求头中提供这些信息，或在环境变量中设置DEEPSEEK_API_KEY和ANTHROPIC_API_KEY", 
+            missing_headers.join(", "))
+    })
 }
 
 /// Calculates the cost of DeepSeek API usage.
@@ -366,7 +384,7 @@ pub(crate) async fn chat(
         id: uuid::Uuid::new_v4().to_string(),
         object: "chat.completion".to_string(),
         created: beijing_timestamp,
-        model: format!("{}_{}", DEEPSEEK_DEFAULT_MODEL, anthropic_response.model),
+        model: format!("{}_{}", get_deepseek_default_model(), anthropic_response.model),
         choices: vec![Choice {
             index: 0,
             message: ResponseMessage {
@@ -405,7 +423,7 @@ pub(crate) async fn chat(
 ///
 /// * `Result<SseResponse>` - A stream of Server-Sent Events or an error
 pub(crate) async fn chat_stream(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
     Json(request): Json<ApiRequest>,
 ) -> Result<SseResponse> {
@@ -443,7 +461,7 @@ pub(crate) async fn chat_stream(
             "id": stream_id,
             "object": "chat.completion.chunk",
             "created": created,
-            "model": DEEPSEEK_DEFAULT_MODEL,
+            "model": get_deepseek_default_model(),
             "choices": [{
                 "index": 0,
                 "delta": {
@@ -474,7 +492,7 @@ pub(crate) async fn chat_stream(
                                 "id": uuid::Uuid::new_v4().to_string(),
                                 "object": "chat.completion.chunk",
                                 "created": chrono::Utc::now().timestamp(),
-                                "model": DEEPSEEK_DEFAULT_MODEL,
+                                "model": get_deepseek_default_model(),
                                 "choices": [{
                                     "index": 0,
                                     "delta": {
@@ -539,7 +557,7 @@ pub(crate) async fn chat_stream(
                             "id": uuid::Uuid::new_v4().to_string(),
                             "object": "chat.completion.chunk",
                             "created": chrono::Utc::now().timestamp(),
-                            "model": DEEPSEEK_DEFAULT_MODEL,
+                            "model": get_deepseek_default_model(),
                             "choices": [{
                                 "index": 0,
                                 "delta": {},
@@ -567,7 +585,7 @@ pub(crate) async fn chat_stream(
                                     "id": uuid::Uuid::new_v4().to_string(),
                                     "object": "chat.completion.chunk",
                                     "created": chrono::Utc::now().timestamp(),
-                                    "model": DEEPSEEK_DEFAULT_MODEL,
+                                    "model": get_deepseek_default_model(),
                                     "choices": [{
                                         "index": 0,
                                         "delta": {
@@ -604,7 +622,7 @@ pub(crate) async fn chat_stream(
                                 "id": stream_id,
                                 "object": "chat.completion.chunk",
                                 "created": created,
-                                "model": DEEPSEEK_DEFAULT_MODEL,
+                                "model": get_deepseek_default_model(),
                                 "choices": [{
                                     "index": 0,
                                     "delta": {},
@@ -644,7 +662,7 @@ pub(crate) async fn chat_stream(
                         "id": stream_id,
                         "object": "chat.completion.chunk",
                         "created": created,
-                        "model": DEEPSEEK_DEFAULT_MODEL,
+                        "model": get_deepseek_default_model(),
                         "choices": [{
                             "index": 0,
                             "delta": {},

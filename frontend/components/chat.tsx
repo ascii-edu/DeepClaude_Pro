@@ -157,7 +157,7 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
       : generateUUID()
     const newChat: StoredChat = {
       id: chatId,
-      title: 'New Chat',
+      title: '新对话',
       timestamp: new Date().toISOString(),
       messages: []
     }
@@ -447,37 +447,26 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
     const controller = new AbortController()
 
     try {
-      const requestBody = {
-        stream: true,
-        system: "You are a helpful AI assistant who excels at reasoning and responds in Markdown format. For code snippets, you wrap them in Markdown codeblocks with it's language specified.",
-        verbose: false,
-        messages: [...messages, { content: input, role: "user" }].map(msg => ({
-          content: msg.content,
-          role: msg.role
-        })),
-        deepseek_config: {
-          headers: {},
-          body: { temperature: 0 }
-        },
-        anthropic_config: {
-          headers: { "anthropic-version": "2023-06-01" },
-          body: {
-            temperature: 0,
-            model: selectedModel
-          }
-        }
-      }
-      // const response = await fetch("https://api.deepclaude.com", {
-      const response = await fetch("http://127.0.0.1:1337", {
+      const response = await fetch("http://127.0.0.1:1337/v1/chat/completions", {
         method: "POST",
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
-          "X-DeepSeek-API-Token": apiTokens.deepseekApiToken,
+          "Authorization": `Bearer ${apiTokens.deepseekApiToken}`,
           "X-Anthropic-API-Token": apiTokens.anthropicApiToken
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: [...messages, { content: input, role: "user" }].map(msg => ({
+            content: msg.content,
+            role: msg.role
+          })),
+          stream: true,
+          system: "You are a helpful AI assistant who excels at reasoning and responds in Markdown format. For code snippets, you wrap them in Markdown codeblocks with it's language specified.",
+          temperature: 0,
+          anthropic_version: "2023-06-01"
+        })
       })
 
       const reader = response.body?.getReader()
@@ -497,69 +486,40 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
 
         const data = JSON.parse(line.slice(6))
 
-        if (data.type === "content") {
-          for (const content of data.content) {
-            if (!currentMessageRef.current) return
+        if (data.error) {
+          console.error("Server error:", data.error)
+          throw new Error(data.error.message)
+        }
 
-            if (content.type === "text") {
-              if (content.text.startsWith("<thinking>")) {
-                isThinking = true
-              } else if (content.text.endsWith("</thinking>")) {
-                isThinking = false
-                setIsThinkingComplete(true)
-              } else {
-                if (isThinking) {
-                  currentMessageRef.current.thinking += content.text
-                } else {
-                  currentMessageRef.current.content += content.text
-                }
+        if (data.choices && data.choices[0]) {
+          const choice = data.choices[0]
+          if (!currentMessageRef.current) return
 
-                // Update message immediately with optimized state update
-                setMessages(prev => {
-                  // Avoid unnecessary array operations if content hasn't changed
-                  const lastMessage = prev[prev.length - 1]
-                  if (lastMessage?.role === "assistant" &&
-                    lastMessage.content === currentMessageRef.current!.content &&
-                    lastMessage.thinking === currentMessageRef.current!.thinking) {
-                    return prev
-                  }
-
-                  // Create new array only when content has changed
-                  if (lastMessage?.role === "assistant") {
-                    const newMessages = [...prev]
-                    newMessages[newMessages.length - 1] = { ...currentMessageRef.current! }
-                    return newMessages
-                  }
-                  return [...prev, { ...currentMessageRef.current! }]
-                })
-              }
-            } else if (content.type === "text_delta") {
-              if (isThinking) {
-                currentMessageRef.current.thinking += content.text
-              } else {
-                currentMessageRef.current.content += content.text
-              }
-
-              // Update message immediately with optimized state update
-              setMessages(prev => {
-                // Avoid unnecessary array operations if content hasn't changed
-                const lastMessage = prev[prev.length - 1]
-                if (lastMessage?.role === "assistant" &&
-                  lastMessage.content === currentMessageRef.current!.content &&
-                  lastMessage.thinking === currentMessageRef.current!.thinking) {
-                  return prev
-                }
-
-                // Create new array only when content has changed
-                if (lastMessage?.role === "assistant") {
-                  const newMessages = [...prev]
-                  newMessages[newMessages.length - 1] = { ...currentMessageRef.current! }
-                  return newMessages
-                }
-                return [...prev, { ...currentMessageRef.current! }]
-              })
-            }
+          if (choice.delta.reasoning_content) {
+            currentMessageRef.current.thinking += choice.delta.reasoning_content
+            setIsThinkingComplete(false)
+          } else if (choice.delta.content) {
+            currentMessageRef.current.content += choice.delta.content
           }
+
+          // Update message immediately with optimized state update
+          setMessages(prev => {
+            // Avoid unnecessary array operations if content hasn't changed
+            const lastMessage = prev[prev.length - 1]
+            if (lastMessage?.role === "assistant" &&
+              lastMessage.content === currentMessageRef.current!.content &&
+              lastMessage.thinking === currentMessageRef.current!.thinking) {
+              return prev
+            }
+
+            // Create new array only when content has changed
+            if (lastMessage?.role === "assistant") {
+              const newMessages = [...prev]
+              newMessages[newMessages.length - 1] = { ...currentMessageRef.current! }
+              return newMessages
+            }
+            return [...prev, { ...currentMessageRef.current! }]
+          })
         }
       }
 
@@ -571,7 +531,12 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
         const lines = chunk.split("\n")
 
         for (const line of lines) {
-          processLine(line)
+          try {
+            processLine(line)
+          } catch (error) {
+            console.error("Error processing line:", error)
+            throw error
+          }
         }
       }
     } catch (error) {
@@ -605,19 +570,19 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
       {/* Delete Chat Confirmation Dialog */}
       <Dialog open={!!chatToDelete} onOpenChange={() => setChatToDelete(null)}>
         <DialogContent>
-          <DialogTitle>Delete Chat</DialogTitle>
+          <DialogTitle>删除对话</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete this chat? This action cannot be undone.
+            确定要删除此对话吗？此操作无法撤消。
           </DialogDescription>
           <DialogFooter className="flex gap-2 justify-end">
             <Button variant="outline" onClick={() => setChatToDelete(null)}>
-              Cancel
+              取消
             </Button>
             <Button
               variant="destructive"
               onClick={() => chatToDelete && deleteChat(chatToDelete)}
             >
-              Delete
+              删除
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -668,7 +633,7 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
                   className="flex-1"
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />
-                  New Chat
+                  新对话
                 </Button>
                 <Button
                   variant="outline"
@@ -726,7 +691,7 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
           {/* Bottom Section */}
           <div className="flex-shrink-0 p-4 pb-8 border-t border-border/40 space-y-4">
             <a
-              href="https://github.com/getAsterisk/deepclaude/issues/new"
+              href="https://github.com/yuanhang110/DeepClaude_Pro/issues/new"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => {
@@ -740,28 +705,13 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
                 className="w-full"
               >
                 <Github className="h-4 w-4 mr-2" />
-                File a bug on GitHub
+                提交bug给GitHub
               </Button>
             </a>
 
             <div className="flex items-center justify-center text-sm text-muted-foreground whitespace-nowrap">
-              <span className="flex-shrink-0 mr-1">An</span>
-              <a
-                href="https://asterisk.so/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:opacity-80 transition-opacity flex items-center mx-1"
-              >
-                <Image
-                  src="/asterisk.png"
-                  alt="Asterisk Logo"
-                  width={90}
-                  height={30}
-                  className="inline-block"
-                  quality={100}
-                />
-              </a>
-              <span className="flex-shrink-0">side project ❤️</span>
+              <span className="flex-shrink-0 mr-1">一个"好玩"的项目由</span>
+              <span className="flex-shrink-0">DeepClaude</span>
             </div>
           </div>
         </div>
@@ -880,7 +830,7 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
                 value={input}
                 onChange={setInput}
                 onSubmit={handleSubmit}
-                placeholder={hasApiTokens ? "Type a message..." : "Please configure API tokens in settings first"}
+                placeholder={hasApiTokens ? "发一条消息......" : "请先在设置中配置API密钥"}
               />
             </div>
           </div>

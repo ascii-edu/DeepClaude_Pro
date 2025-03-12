@@ -177,7 +177,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                   form.setValue(name, [...pairs, { key: "", value: "" }])
                 }}
               >
-                Add {label}
+                添加 {label}
               </Button>
             </div>
           </FormItem>
@@ -195,11 +195,11 @@ export function Settings({ onSettingsChange }: SettingsProps) {
             className="cursor-pointer bg-muted/30"
           >
             <Settings2 className="h-4 w-4" />
-            Configure
+            设置
           </Button>
           {!form.getValues("deepseekApiToken") || !form.getValues("anthropicApiToken") ? (
             <div className="absolute top-[48px] right-0 bg-muted text-muted-foreground px-4 py-2 rounded-lg text-sm border border-border before:content-[''] before:absolute before:top-[-6px] before:right-6 before:w-3 before:h-3 before:bg-muted before:border-l before:border-t before:border-border before:rotate-45">
-              Configure API tokens to start
+              配置API密钥以开始
             </div>
           ) : null}
         </div>
@@ -208,7 +208,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
         <SheetHeader className="mb-6">
           <div className="h-8" /> {/* Spacer for close button */}
           <div className="flex flex-row items-center justify-between mt-2">
-            <SheetTitle>Settings</SheetTitle>
+            <SheetTitle>设置</SheetTitle>
             <div className="flex gap-2 items-center">
               <Button
                 variant="outline"
@@ -217,7 +217,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                 className="bg-muted/30 text-blue-500 hover:text-blue-500/80"
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
-                Reset
+                重置
               </Button>
               <Button
                 variant="outline"
@@ -238,7 +238,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                 className="bg-muted/30 text-green-500 hover:text-green-500/80"
               >
                 <Save className="h-4 w-4 mr-2" />
-                Save
+                保存
               </Button>
             </div>
           </div>
@@ -252,11 +252,11 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                 name="deepseekApiToken"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>DeepSeek API Token</FormLabel>
+                    <FormLabel>DeepSeek API 密钥</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="Enter DeepSeek API token..."
+                        placeholder="输入DeepSeek API密钥..."
                         {...field}
                       />
                     </FormControl>
@@ -269,11 +269,11 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                 name="anthropicApiToken"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Anthropic API Token</FormLabel>
+                    <FormLabel>Anthropic API 密钥</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="Enter Anthropic API token..."
+                        placeholder="输入Anthropic API密钥..."
                         {...field}
                       />
                     </FormControl>
@@ -287,10 +287,10 @@ export function Settings({ onSettingsChange }: SettingsProps) {
               name="systemPrompt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>System Prompt</FormLabel>
+                  <FormLabel>系统提示词</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Enter system prompt..."
+                      placeholder="输入系统提示词..."
                       className="min-h-[100px]"
                       {...field}
                     />
@@ -301,13 +301,13 @@ export function Settings({ onSettingsChange }: SettingsProps) {
 
             <div className="space-y-6">
               <div className="space-y-4">
-                <h4 className="text-sm font-medium">DeepSeek Configuration</h4>
+                <h4 className="text-sm font-medium">DeepSeek 配置</h4>
                 <KeyValuePairFields name="deepseekHeaders" label="Headers" />
                 <KeyValuePairFields name="deepseekBody" label="Body" />
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-sm font-medium">Anthropic Configuration</h4>
+                <h4 className="text-sm font-medium">Anthropic 配置</h4>
                 <KeyValuePairFields name="anthropicHeaders" label="Headers" />
                 <KeyValuePairFields name="anthropicBody" label="Body" />
               </div>

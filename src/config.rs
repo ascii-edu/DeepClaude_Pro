@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use dotenv::dotenv;
 use std::env;
+use std::path::PathBuf;
 
 /// Root configuration structure containing all application settings.
 ///
@@ -98,7 +99,25 @@ impl Config {
     /// - The TOML content cannot be parsed
     /// - The parsed content doesn't match the expected structure
     pub fn load() -> anyhow::Result<Self> {
-        dotenv().ok();
+        // 尝试多个可能的位置来加载.env文件
+        let possible_env_paths = vec![
+            PathBuf::from(".env"),
+            PathBuf::from("../.env"),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".env"),
+        ];
+
+        let mut env_loaded = false;
+        for path in possible_env_paths {
+            if path.exists() {
+                dotenv::from_path(path.as_path()).ok();
+                env_loaded = true;
+                break;
+            }
+        }
+
+        if !env_loaded {
+            eprintln!("警告: 无法找到.env文件，将使用默认环境变量");
+        }
         
         // 尝试从配置文件加载
         let config_result = config::Config::builder()

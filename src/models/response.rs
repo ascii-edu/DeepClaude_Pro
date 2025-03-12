@@ -97,24 +97,29 @@ pub struct AnthropicUsage {
 #[serde(tag = "type")]
 pub enum StreamEvent {
     #[serde(rename = "start")]
+    #[allow(dead_code)]
     Start {
         created: DateTime<Utc>,
     },
     
     #[serde(rename = "content")]
+    #[allow(dead_code)]
     Content {
         content: Vec<ContentBlock>,
     },
     
     #[serde(rename = "usage")]
+    #[allow(dead_code)]
     Usage {
         usage: CombinedUsage,
     },
     
     #[serde(rename = "done")]
+    #[allow(dead_code)]
     Done,
     
     #[serde(rename = "error")]
+    #[allow(dead_code)]
     Error {
         message: String,
         code: u16,
@@ -196,7 +201,7 @@ impl ApiResponse {
 }
 
 impl AnthropicUsage {
-    /// Converts Anthropic usage statistics to the generic usage format.
+    /// Converts Anthropic-specific usage statistics to the application's format.
     ///
     /// # Arguments
     ///
@@ -205,6 +210,7 @@ impl AnthropicUsage {
     /// # Returns
     ///
     /// A new `AnthropicUsage` with values copied from the Anthropic usage
+    #[allow(dead_code)]
     pub fn from_anthropic(usage: crate::clients::anthropic::Usage) -> Self {
         Self {
             input_tokens: usage.input_tokens,

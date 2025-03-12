@@ -47,15 +47,41 @@ use std::{collections::HashMap, pin::Pin};
 use futures::StreamExt;
 use serde_json;
 use tracing;
-use dotenv;
+use std::env;
 
+// 从环境变量中读取API URL，如果未设置则使用默认值
+pub(crate) fn get_anthropic_api_url() -> String {
+    env::var("ANTHROPIC_API_URL").unwrap_or_else(|_| String::from("https://api.gptsapi.net/v1/messages"))
+}
+
+// 从环境变量中读取Claude的OpenAI格式API URL，如果未设置则使用默认值
+pub(crate) fn get_claude_openai_type_api_url() -> String {
+    env::var("CLAUDE_OPENAI_TYPE_API_URL").unwrap_or_else(|_| String::from("https://api.gptsapi.net/v1/messages"))
+}
+
+// 从环境变量中读取DeepSeek的OpenAI格式API URL，如果未设置则使用默认值
+pub(crate) fn get_deepseek_openai_type_api_url() -> String {
+    env::var("DEEPSEEK_OPENAI_TYPE_API_URL").unwrap_or_else(|_| String::from("https://ark.cn-beijing.volces.com/api/v3/chat/completions"))
+}
+
+// 从环境变量中读取Claude模型名称，如果未设置则使用默认值
+pub(crate) fn get_claude_default_model() -> String {
+    env::var("CLAUDE_DEFAULT_MODEL").unwrap_or_else(|_| String::from("wild-3-7-sonnet-20250219"))
+}
+
+// 为了向后兼容，保留这些常量，但它们现在使用函数获取值
+#[allow(dead_code)]
 pub(crate) const ANTHROPIC_API_URL: &str = "https://api.gptsapi.net/v1/messages";
-pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+#[allow(dead_code)]
+pub(crate) const CLAUDE_OPENAI_TYPE_API_URL: &str = "https://api.gptsapi.net/v1/messages";
+#[allow(dead_code)]
+pub(crate) const DEEPSEEK_OPENAI_TYPE_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
 //pub(crate) const ANTHROPIC_API_URL: &str = "https://anthropic.claude-plus.top/v1/messages";
 /// pub(crate) const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages
 // const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20241022";
 //const DEFAULT_MODEL: &str = "wild-3-5-sonnet-20241022";
-const DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
+#[allow(dead_code)]
+const CLAUDE_DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
 //const DEFAULT_MODEL: &str = "deepseek-v3-241226";
 //const DEFAULT_MODEL: &str = "claude-3-7-sonnet-20250219";
 /// Client for interacting with Anthropic's Claude models.
@@ -73,7 +99,7 @@ const DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
 #[derive(Debug)]
 pub struct AnthropicClient {
     pub(crate) client: Client,
-    api_token: String,
+    _api_token: String,  // 添加下划线前缀，表示有意不使用
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -141,6 +167,7 @@ pub(crate) struct AnthropicMessage {
 pub enum StreamEvent {
     #[serde(rename = "message_start")]
     MessageStart {
+        #[allow(dead_code)]
         message: AnthropicResponse,
     },
     #[serde(rename = "content_block_start")]
@@ -176,6 +203,7 @@ pub enum StreamEvent {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ContentDelta {
     #[serde(rename = "type")]
+    #[allow(dead_code)]
     pub delta_type: String,
     pub text: String,
 }
@@ -200,7 +228,7 @@ impl AnthropicClient {
     pub fn new(api_token: String) -> Self {
         Self {
             client: Client::new(),
-            api_token,
+            _api_token: api_token,
         }
     }
 
@@ -340,9 +368,10 @@ impl AnthropicClient {
             .collect();
 
         // Create base request with required fields
-        let default_model_json = serde_json::json!(DEFAULT_MODEL);
+        let default_model = get_claude_default_model();
+        let default_model_json = serde_json::json!(default_model);
         let model_value = config.body.get("model").unwrap_or(&default_model_json);
-        let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
+        let model_str = model_value.as_str().unwrap_or(&default_model);
         let _is_deepseek = model_str.starts_with("deepseek") || model_str == "deepclaude";
         
         let default_max_tokens = if let Some(model_str) = model_value.as_str() {
@@ -443,16 +472,19 @@ impl AnthropicClient {
         }
 
         // 获取模型名称，决定使用哪个API端点
-        let default_model_json = serde_json::json!(DEFAULT_MODEL);
+        let default_model = get_claude_default_model();
+        let default_model_json = serde_json::json!(default_model);
         let model_value = config.body.get("model").unwrap_or(&default_model_json);
-        let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
+        let model_str = model_value.as_str().unwrap_or(&default_model);
         let _is_deepseek = model_str.starts_with("deepseek") || model_str == "deepclaude";
         
         // 选择API端点
         let api_url = if _is_deepseek {
-            DEEPSEEK_API_URL
+            get_deepseek_openai_type_api_url()
+        } else if model_str.contains("openai") {
+            get_claude_openai_type_api_url()
         } else {
-            ANTHROPIC_API_URL
+            get_anthropic_api_url()
         };
         
         // 构建请求头和请求体
@@ -509,7 +541,10 @@ impl AnthropicClient {
                             id: extract_id_from_response(&raw_response).unwrap_or_else(|| "generated_id".to_string()),
                             response_type: "message".to_string(),
                             role: "assistant".to_string(),
-                            model: extract_model_from_response(&raw_response).unwrap_or_else(|| DEFAULT_MODEL.to_string()),
+                            model: {
+                                let default_model = get_claude_default_model();
+                                extract_model_from_response(&raw_response).unwrap_or_else(|| default_model)
+                            },
                             content: content_blocks,
                             stop_reason: Some("stop".to_string()),
                             stop_sequence: None,
@@ -556,16 +591,19 @@ impl AnthropicClient {
         config: &'a ApiConfig,
     ) -> Pin<Box<dyn Stream<Item = Result<StreamEvent>> + Send + 'a>> {
         // 获取模型名称，决定使用哪个API端点
-        let default_model_json = serde_json::json!(DEFAULT_MODEL);
+        let default_model = get_claude_default_model();
+        let default_model_json = serde_json::json!(default_model);
         let model_value = config.body.get("model").unwrap_or(&default_model_json);
-        let model_str = model_value.as_str().unwrap_or(DEFAULT_MODEL);
+        let model_str = model_value.as_str().unwrap_or(&default_model);
         let _is_deepseek = model_str.starts_with("deepseek") || model_str == "deepclaude";
         
         // 选择API端点
         let api_url = if _is_deepseek {
-            DEEPSEEK_API_URL
+            get_deepseek_openai_type_api_url()
+        } else if model_str.contains("openai") {
+            get_claude_openai_type_api_url()
         } else {
-            ANTHROPIC_API_URL
+            get_anthropic_api_url()
         };
         
         tracing::info!("使用API端点: {}, 模型: {}", api_url, model_str);
@@ -823,9 +861,10 @@ fn parse_deepseek_response(raw_response: &str) -> Result<AnthropicResponse> {
         .unwrap_or("deepseek_generated_id")
         .to_string();
     
+    let default_model = get_claude_default_model();
     let model = json_value.get("model")
         .and_then(|v| v.as_str())
-        .unwrap_or(DEFAULT_MODEL)
+        .unwrap_or(&default_model)
         .to_string();
     
     // 提取内容

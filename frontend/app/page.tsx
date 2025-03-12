@@ -26,31 +26,7 @@ export default function LandingPage() {
             <div className="absolute inset-0 shimmer" />
             <Megaphone className="h-3.5 w-3.5 relative z-10" />
             <span className="relative z-10">
-              We solved AI Code Comprehension, launching the SDK and Platform soon. Follow{' '}
-              <a 
-                href="https://x.com/getasterisk" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:text-primary/80 transition-colors font-semibold"
-              >
-                Asterisk
-              </a>{' '}
-              on{' '}
-              <a 
-                href="https://x.com/getasterisk" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:text-primary/80 transition-colors inline-flex items-center font-semibold"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-3.5 w-3.5 relative top-[0.1em]"
-                  fill="currentColor"
-                >
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                </svg>
-              </a>{' '}
-              to catch the launch!
+              升级版本DeepClaude，支持OpenAI格式，可以自由配置OpenAI格式的DeepSeek R1和Claude 3.5 Sonnet的API
             </span>
           </div>
         </div>
@@ -73,7 +49,7 @@ export default function LandingPage() {
           </h1>
           
           <p className="max-w-[600px] text-lg sm:text-xl text-muted-foreground">
-          Harness the power of DeepSeek R1's reasoning and Claude's creativity and code generation capabilities with a unified API and chat interface.
+          通过统一的应用程序编程接口（API）和聊天界面，利用 DeepSeek R1 的推理能力以及 Claude 的创造力和代码生成能力。
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -85,7 +61,7 @@ export default function LandingPage() {
               })
             }}>
               <Button size="lg" className="group">
-                Try DeepClaude Chat
+                试试DeepClaude对话
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
@@ -98,11 +74,11 @@ export default function LandingPage() {
             }}>
               <Button variant="outline" size="lg" className="group">
                 <Code2 className="mr-2 h-4 w-4" />
-                API Docs
+                API文档
               </Button>
             </Link>
             <a 
-              href="https://github.com/getasterisk/deepclaude" 
+              href="https://github.com/yuanhang110/DeepClaude_Pro" 
               target="_blank" 
               rel="noopener noreferrer"
               onClick={() => {
@@ -115,28 +91,13 @@ export default function LandingPage() {
             >
               <Button variant="outline" size="lg" className="group">
                 <Github className="mr-2 h-4 w-4" />
-                Star on GitHub
+                在Github上查看
               </Button>
             </a>
           </div>
           
           <div className="flex items-center justify-center text-sm text-muted-foreground mt-2">
-            <span className="flex items-center mr-1">A free and open-source gift from</span>
-            <a 
-              href="https://asterisk.so/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:opacity-80 transition-opacity flex items-center"
-            >
-              <Image
-                src="/asterisk.png"
-                alt="Asterisk Logo"
-                width={150}
-                height={50}
-                className="inline-block"
-                quality={100}
-              />
-            </a>
+            <span className="flex items-center mr-1">免费开源的项目</span>
           </div>
         </div>
         
@@ -161,7 +122,7 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-pattern-combined opacity-50" />
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">
-              Features
+              项目特点
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -179,9 +140,9 @@ export default function LandingPage() {
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Zap className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold">Zero Latency</h3>
+                  <h3 className="text-xl font-semibold">0 延迟</h3>
                   <p className="text-muted-foreground">
-                    Instant responses of R1s CoT followed with Claude's response in a single stream powered by a high-performance streaming API written in Rust.
+                  由用 Rust 语言编写的高性能流式应用程序编程接口（API）提供支持，以单一流的形式实现 R1 的思维链CoT即时回复，随后紧跟 Claude 的回复。
                   </p>
                 </div>
               </Card>
@@ -192,9 +153,9 @@ export default function LandingPage() {
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Lock className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold">Private & Secure</h3>
+                  <h3 className="text-xl font-semibold">隐私 & 安全</h3>
                   <p className="text-muted-foreground">
-                    Your data stays private with end-to-end security and local API key management.
+                    您的数据在端到端的安全性和本地API密钥管理下保持私密。
                   </p>
                 </div>
               </Card>
@@ -205,9 +166,9 @@ export default function LandingPage() {
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Settings2 className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold">Highly Configurable</h3>
+                  <h3 className="text-xl font-semibold">高度可配置</h3>
                   <p className="text-muted-foreground">
-                    Customize every aspect of the API and interface to match your needs.
+                    自定义API和界面以满足您的需求。
                   </p>
                 </div>
               </Card>
@@ -218,9 +179,9 @@ export default function LandingPage() {
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Code2 className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold">Open Source</h3>
+                  <h3 className="text-xl font-semibold">开源</h3>
                   <p className="text-muted-foreground">
-                    Free and open-source codebase. Contribute, modify, and deploy as you wish.
+                    免费且开源的代码库。贡献、修改和部署，随您所愿。
                   </p>
                 </div>
               </Card>
@@ -231,9 +192,9 @@ export default function LandingPage() {
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Sparkles className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold">Dual AI Power</h3>
+                  <h3 className="text-xl font-semibold">双AI力量</h3>
                   <p className="text-muted-foreground">
-                    Combine DeepSeek R1's reasoning with Claude's creativity and code generation.
+                    结合DeepSeek R1的推理能力和Claude的创造力和代码生成能力。
                   </p>
                 </div>
               </Card>
@@ -254,9 +215,9 @@ export default function LandingPage() {
                       <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-semibold">Managed BYOK API</h3>
+                  <h3 className="text-xl font-semibold">托管BYOK API</h3>
                   <p className="text-muted-foreground">
-                    Use your own API keys with our managed infrastructure for complete control and flexibility.
+                    使用您的API密钥和我们的托管基础设施，实现完全控制和灵活性。
                   </p>
                 </div>
               </Card>
@@ -273,7 +234,7 @@ export default function LandingPage() {
           </div>
           <div className="max-w-4xl mx-auto text-center relative z-10">
             <h2 className="text-3xl sm:text-4xl font-bold mb-12">
-              Frequently Asked Questions
+              常见问题
             </h2>
             
             <div className="grid grid-cols-1 gap-6">
@@ -290,19 +251,19 @@ export default function LandingPage() {
                   }}
                 >
                   <div className="flex items-center justify-between text-left">
-                    <h3 className="text-xl font-semibold">Why R1 + Claude?</h3>
+                    <h3 className="text-xl font-semibold">为什么 R1 + Claude?</h3>
                     <ChevronDown className="h-5 w-5 transform transition-transform duration-200" />
                   </div>
                 </CollapsibleTrigger>
                   <CollapsibleContent className="pt-4 text-left text-muted-foreground">
                     <p className="mb-4">
-                      DeepSeek R1's CoT trace demonstrates deep reasoning to the point of an LLM experiencing "metacognition" - correcting itself, thinking about edge cases, and so on. It's a quasi MCTS in natural language.
+                    DeepSeek R1的思维链（CoT）追踪展示了深度推理能力，达到了让大语言模型（LLM）出现“元认知”的程度——自我修正、思考极端情况等等。这是一种自然语言形式的准蒙特卡洛树搜索（MCTS） 。 
                     </p>
                     <p className="mb-4">
-                      But R1 lacks at code generation, creativity, and conversational skills. The model that excels at all 3 is the Claude 3.5 Sonnet New from Anthropic. So how about we combine both of them? And take the best of both worlds? Enter DeepClaude!
+                    但R1在代码生成、创造力以及对话技巧方面有所欠缺。在这三个方面都表现出色的模型是来自Anthropic公司的Claude 3.5 Sonnet New。那么，我们把它们两者结合起来怎么样呢？兼取两者之长？于是就有了DeepClaude！ 
                     </p>
                     <p>
-                      With DeepClaude, you get a fast streaming R1 CoT + Claude Models in a single API call with your own API keys.
+                      使用DeepClaude，您可以在单个API调用中获得快速流式R1 CoT + Claude模型，使用您自己的API密钥。
                     </p>
                   </CollapsibleContent>
                 </Collapsible>
@@ -313,16 +274,16 @@ export default function LandingPage() {
                 <Collapsible>
                   <CollapsibleTrigger className="w-full">
                     <div className="flex items-center justify-between text-left">
-                      <h3 className="text-xl font-semibold">The managed API is free?</h3>
+                      <h3 className="text-xl font-semibold">托管API是免费的吗？</h3>
                       <ChevronDown className="h-5 w-5 transform transition-transform duration-200" />
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-4 text-left text-muted-foreground">
                     <p className="mb-4">
-                      Yes, 100% free and you use your own keys. The API wraps both DeepSeek and Anthropic streaming API into one. And you get some niceties like calculating the combined usage and price for you to use. We keep no logs and it's completely open-source - you can self-host it, modify it, redistribute it, whatever.
+                      是的，100%免费，您可以使用自己的密钥。API将DeepSeek和Anthropic的流式API包装在一起。您还可以获得一些便利功能，例如计算组合使用情况和价格以供您使用。我们不保留任何日志，它是完全开源的——您可以自行托管、修改、重新分发，等等。
                     </p>
                     <p>
-                      Feel free to use this at scale, we use this in production at Asterisk serving millions of tokens in parallel daily and it hasn't failed us "yet". And like all nice things, just don't abuse it.
+                      请随意在规模上使用它，我们已经在Asterisk生产中使用它，每天为数百万个令牌提供服务，它还没有让我们失望。像所有美好的事物一样，不要滥用它。
                     </p>
                   </CollapsibleContent>
                 </Collapsible>
@@ -340,10 +301,10 @@ export default function LandingPage() {
           </div>
           <div className="max-w-4xl mx-auto text-center relative z-10">
             <h2 className="text-2xl sm:text-3xl font-bold mb-6">
-              Start reading some AI internal monologue?
+              开始阅读一些AI内部独白？
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
-              No sign up. No credit card. No data stored.
+              无需注册。无需信用卡。无需存储数据。
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/chat" onClick={() => {
@@ -354,7 +315,7 @@ export default function LandingPage() {
                 })
               }}>
                 <Button size="lg" className="group">
-                  Try DeepClaude Chat
+                  试试DeepClaude对话
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>
@@ -367,7 +328,7 @@ export default function LandingPage() {
               }}>
                 <Button variant="outline" size="lg" className="group">
                   <Code2 className="mr-2 h-4 w-4" />
-                  API Docs
+                  API文档
                 </Button>
               </Link>
             </div>
@@ -379,7 +340,7 @@ export default function LandingPage() {
       <footer className="relative z-10 w-full py-8 px-4 border-t border-border/40 bg-background">
         <div className="max-w-4xl mx-auto text-center">
           <div className="flex items-center justify-center text-sm text-muted-foreground">
-            <span className="flex items-center mr-1">A "for fun" project by</span>
+            <span className="flex items-center mr-1">一个“好玩”的项目由</span>
             <a 
               href="https://asterisk.so/"
               target="_blank"
