@@ -25,6 +25,9 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details>
 <summary><strong>更新日志：</strong></summary> 
 <div>
+2025-03-13: 更新 1.0.2版本，支持在.env文件中配置api路径和模型id
+</div>
+<div>
 2025-03-11: 更新 1.0.1版本，修复cherrystudio输出问题
 </div>
 <div>
