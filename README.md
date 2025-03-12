@@ -75,25 +75,30 @@ DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度�
 
 ### 配置方法
 在项目根目录中编辑一个`.env`文件：
+根据环境变量的注释配置就行，现在配置已经很简单了
 ```toml
 # api密钥，自己取的
-API_KEY=
+API_KEY=xyh110
 # deepseek的密钥
 DEEPSEEK_API_KEY=
 # claude模型的密钥
 ANTHROPIC_API_KEY=
 # 服务的端口
 PORT=1337
-```
 
-anthropic.rs文件中再去修改api地址，如果是openai格式的就替换DEEPSEEK_API_URL: &str变量后的“https://ark.cn-beijing.volces.com/api/v3/chat/completions”，如果是ANTHROPIC_API_URL这种v1/messages格式的就一样的替换ANTHROPIC_API_URL: &str =变量后跟的值，然后模型也对应替换就行。
-
-```rust
-pub(crate) const ANTHROPIC_API_URL: &str = "https://api.gptsapi.net/v1/messages";
-pub(crate) const DEEPSEEK_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
-// const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20241022";
-//const DEFAULT_MODEL: &str = "wild-3-5-sonnet-20241022";
-const DEFAULT_MODEL: &str = "wild-3-7-sonnet-20250219";
+# API URL配置
+# DeeepSeek的密钥
+# 如果使用deepseek格式的api就填DEEPSEEK_OPENAI_TYPE_API_URL
+DEEPSEEK_OPENAI_TYPE_API_URL=
+# Claude的密钥，底下两种2选1填
+# 如果使用claude格式的api就填ANTHROPIC_API_URL
+ANTHROPIC_API_URL=
+# 如果使用claude格式的api就填CLAUDE_OPENAI_TYPE_API_URL
+CLAUDE_OPENAI_TYPE_API_URL=
+# 模型配置
+CLAUDE_DEFAULT_MODEL=
+#DEEPSEEK_DEFAULT_MODEL=deepseek-r1-250120
+DEEPSEEK_DEFAULT_MODEL=
 ```
 
 ## API使用方法
