@@ -1,6 +1,5 @@
 <div align="center">
 <h1>DeepClaude_Pro(OpenAI Compatible) 🐬🧠</h1>
-
 <img src="frontend/public/deepclaude.png" width="300">
 
 <div align="left">
@@ -22,8 +21,11 @@ In the future, I will further explore diverse model combinations and prompt engi
 
 </div>
 
-<details>
+<details open>
 <summary><strong>更新日志：</strong></summary> 
+<div>
+2025-03-14: 更新 1.1版本，支持前端界面配置环境变量，前端直接支持对话
+</div>
 <div>
 2025-03-13: 更新 1.0.2版本，支持在.env文件中配置api路径和模型id
 </div>
@@ -35,16 +37,17 @@ In the future, I will further explore diverse model combinations and prompt engi
 </div>
 </details>
 
+
 ## 概述
 
-DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度求索R1的思维链（CoT）推理能力与人工智能公司Anthropic的克劳德模型在创造力和代码生成方面的优势相结合。它提供了一个统一的接口，让你在完全掌控自己的API密钥和数据的同时，充分利用这两个模型的优势。
+DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度求索R1的思维链（CoT）推理能力与人工智能公司Anthropic的Claude模型在创造力和代码生成方面的优势相结合。它提供了一个统一的接口，让你在完全掌控自己的API密钥和数据的同时，充分利用这两个模型的优势。
 
 ## 功能特性
-🚀 **零延迟** - 由高性能的Rust API驱动，先由R1的思维链提供即时响应，随后在单个流中呈现克劳德的回复  
+🚀 **零延迟** - 由高性能的Rust API驱动，先由R1的思维链提供即时响应，随后在单个流中呈现Claude的回复  
 🔒 **私密且安全** - 采用端到端的安全措施，进行本地API密钥管理。你的数据将保持私密  
 ⚙️ **高度可配置** - 可自定义API和接口的各个方面，以满足你的需求  
 🌟 **开源** - 免费的开源代码库。你可以根据自己的意愿进行贡献、修改和部署  
-🤖 **双人工智能能力** - 将深度求索R1的推理能力与克劳德的创造力和代码生成能力相结合  
+🤖 **双人工智能能力** - 将深度求索R1的推理能力与Claude的创造力和代码生成能力相结合  
 🔑 **自带密钥管理的API** - 在我们的托管基础设施中使用你自己的API密钥，实现完全掌控
 
 ## 为什么选择R1和Claude？
@@ -52,7 +55,7 @@ DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度�
 
 然而，R1在代码生成、创造力和对话技巧方面有所欠缺。claude 3.5 sonnet版本在这些领域表现出色，是完美的补充。DeepClaude结合了这两个模型，以提供：
 - R1卓越的推理和问题解决能力
-- 克劳德出色的代码生成和创造力
+- Claude出色的代码生成和创造力
 - 单次API调用即可实现快速的流式响应
 - 使用你自己的API密钥实现完全掌控
 
@@ -73,9 +76,44 @@ DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度�
    cargo build --release
    ```
 
+3. 运行后端环境
+
+   ```
+   UST_LOG=debug cargo run --release
+   ```
+
+4. 运行前端环境
+
+   windows中
+
+   ```
+   cd frontend & npm run dev
+   ```
+
+   macos中
+
+   ```
+   cd frontend && npm run dev
+   ```
+
+5. 前端访问地址
+
+   ```
+   http://localhost:3000/chat
+   ```
+
 ### 配置方法
-在项目根目录中编辑一个`.env`文件：
-根据环境变量的注释配置就行，现在配置已经很简单了
+
+**方法一：**
+
+在前端界面直接设置，在底下编辑完成后，可以直接保存环境变量到.env文件中
+
+<img src="picture/setting.png" width="100" style="zoom: 200%;" >
+
+**方法二：**
+
+在项目根目录中编辑`.env`文件：
+
 ```toml
 # api密钥，自己取的
 API_KEY=xyh110
@@ -178,7 +216,7 @@ DeepClaude可以在你自己的基础设施上进行自主托管。请按照以�
 
 # 星星记录
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yuanhang110/DeepClaude_Pro&type=Date)](https://star-history.com/#ErlichLiu/DeepClaude&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=yuanhang110/DeepClaude_Pro&type=Date)](https://star-history.com/#yuanhang110/DeepClaude&Date)
 
 ## 贡献代码
 我们欢迎贡献！请参阅我们的[贡献指南](CONTRIBUTING.md)，了解有关以下方面的详细信息：

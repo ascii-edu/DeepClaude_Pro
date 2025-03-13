@@ -12,13 +12,12 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { ChevronRight, ChevronDown, Loader2, Settings2, PlusCircle, Trash2, Github } from "lucide-react"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { CopyButton } from "@/components/ui/copy-button"
-import { MarkdownEditor } from "@/components/ui/markdown-editor"
+import { ChatInput } from "@/components/ui/chat-input"
 import { usePostHog } from "../providers/posthog"
 
 interface Message {
@@ -35,21 +34,20 @@ interface StoredChat {
 }
 
 interface ChatProps {
-  selectedModel: string
-  onModelChange: (model: string) => void
   apiTokens: {
     deepseekApiToken: string
     anthropicApiToken: string
   }
 }
 
-export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
+export function Chat({ apiTokens }: ChatProps) {
   const posthog = usePostHog()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [useStreaming, setUseStreaming] = useState(true)
   const [openThinking, setOpenThinking] = useState<number | null>(null)
-  const [currentModel, setCurrentModel] = useState(selectedModel)
+  const [autoExpandThinking, setAutoExpandThinking] = useState(false)
   const parentRef = useRef<HTMLDivElement>(null)
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true)
   const [isScrolling, setIsScrolling] = useState(false)
@@ -201,19 +199,6 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
   const currentMessageRef = useRef<Message | null>(null)
   const scrollRef = useRef<number | null>(null)
 
-  // Track model changes
-  useEffect(() => {
-    if (currentModel !== selectedModel) {
-      posthog.capture('model_changed', {
-        from_model: currentModel,
-        to_model: selectedModel,
-        chat_id: currentChatId,
-        timestamp: new Date().toISOString()
-      })
-      setCurrentModel(selectedModel)
-    }
-  }, [selectedModel, currentModel, currentChatId, posthog])
-
   // Memoized renderers for code blocks
   const renderers = useMemo(() => {
     const CodeRenderer = React.memo(({ node, inline, className, children, ...props }: any) => {
@@ -349,7 +334,7 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
         <>
           {message.thinking && (
             <Collapsible
-              open={openThinking === index}
+              open={autoExpandThinking || openThinking === index}
               onOpenChange={(open) => setOpenThinking(open ? index : null)}
             >
               <div className="border border-border/40 rounded-lg message-transition" data-loaded="true">
@@ -403,16 +388,16 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
     })
     MemoizedMessageContent.displayName = 'MemoizedMessageContent'
     return MemoizedMessageContent
-  }, [openThinking, renderers, isLoading, elapsedTime, isThinkingComplete])
+  }, [openThinking, renderers, isLoading, elapsedTime, isThinkingComplete, autoExpandThinking])
 
   const handleSubmit = async () => {
     if (!input.trim() || isLoading) return
-    if (!apiTokens.deepseekApiToken || !apiTokens.anthropicApiToken) return
+    if (!apiTokens.deepseekApiToken) return
 
     // Track message sent
     posthog.capture('message_sent', {
       chat_id: currentChatId,
-      model: currentModel,
+      model: "deepclaude",
       message_length: input.length,
       has_code: input.includes('```'),
       timestamp: new Date().toISOString()
@@ -432,6 +417,7 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
       setCurrentChatId(newChat.id)
     }
 
+    // Create a new user message
     const userMessage: Message = {
       role: "user",
       content: input
@@ -453,90 +439,159 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
-          "Authorization": `Bearer ${apiTokens.deepseekApiToken}`,
-          "X-Anthropic-API-Token": apiTokens.anthropicApiToken
+          "Authorization": `Bearer ${apiTokens.deepseekApiToken}`
         },
         body: JSON.stringify({
-          model: selectedModel,
+          model: "deepclaude",
           messages: [...messages, { content: input, role: "user" }].map(msg => ({
             content: msg.content,
             role: msg.role
           })),
-          stream: true,
-          system: "You are a helpful AI assistant who excels at reasoning and responds in Markdown format. For code snippets, you wrap them in Markdown codeblocks with it's language specified.",
-          temperature: 0,
-          anthropic_version: "2023-06-01"
+          stream: useStreaming
         })
       })
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error("No reader available")
-
-      // Initialize current message
+      // 初始化当前消息
       currentMessageRef.current = {
         role: "assistant",
         content: "",
         thinking: ""
       }
 
-      let isThinking = false
+      if (useStreaming) {
+        // 处理流式响应
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error("No reader available")
 
-      const processLine = (line: string) => {
-        if (!line.trim() || !line.startsWith("data: ")) return
+        let isThinking = false
 
-        const data = JSON.parse(line.slice(6))
-
-        if (data.error) {
-          console.error("Server error:", data.error)
-          throw new Error(data.error.message)
-        }
-
-        if (data.choices && data.choices[0]) {
-          const choice = data.choices[0]
-          if (!currentMessageRef.current) return
-
-          if (choice.delta.reasoning_content) {
-            currentMessageRef.current.thinking += choice.delta.reasoning_content
-            setIsThinkingComplete(false)
-          } else if (choice.delta.content) {
-            currentMessageRef.current.content += choice.delta.content
+        const processLine = (line: string) => {
+          if (!line.trim()) return
+          
+          // 处理流式响应结束标记
+          if (line === "data: [DONE]") {
+            return
           }
+          
+          // 确保行以"data: "开头
+          if (!line.startsWith("data: ")) return
 
-          // Update message immediately with optimized state update
-          setMessages(prev => {
-            // Avoid unnecessary array operations if content hasn't changed
-            const lastMessage = prev[prev.length - 1]
-            if (lastMessage?.role === "assistant" &&
-              lastMessage.content === currentMessageRef.current!.content &&
-              lastMessage.thinking === currentMessageRef.current!.thinking) {
-              return prev
-            }
-
-            // Create new array only when content has changed
-            if (lastMessage?.role === "assistant") {
-              const newMessages = [...prev]
-              newMessages[newMessages.length - 1] = { ...currentMessageRef.current! }
-              return newMessages
-            }
-            return [...prev, { ...currentMessageRef.current! }]
-          })
-        }
-      }
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = new TextDecoder().decode(value)
-        const lines = chunk.split("\n")
-
-        for (const line of lines) {
           try {
-            processLine(line)
+            const data = JSON.parse(line.slice(6))
+
+            if (data.error) {
+              console.error("Server error:", data.error)
+              throw new Error(data.error.message)
+            }
+
+            if (data.choices && data.choices[0]) {
+              const choice = data.choices[0]
+              if (!currentMessageRef.current) return
+
+              if (choice.delta.reasoning_content) {
+                currentMessageRef.current.thinking += choice.delta.reasoning_content
+                setIsThinkingComplete(false)
+              } else if (choice.delta.content) {
+                currentMessageRef.current.content += choice.delta.content
+              }
+
+              // Update message immediately with optimized state update
+              setMessages(prev => {
+                // Avoid unnecessary array operations if content hasn't changed
+                const lastMessage = prev[prev.length - 1]
+                if (lastMessage?.role === "assistant" &&
+                  lastMessage.content === currentMessageRef.current!.content &&
+                  lastMessage.thinking === currentMessageRef.current!.thinking) {
+                  return prev
+                }
+
+                // Create new array only when content has changed
+                if (lastMessage?.role === "assistant") {
+                  const newMessages = [...prev]
+                  newMessages[newMessages.length - 1] = { ...currentMessageRef.current! }
+                  return newMessages
+                }
+                return [...prev, { ...currentMessageRef.current! }]
+              })
+            }
           } catch (error) {
-            console.error("Error processing line:", error)
-            throw error
+            console.error("Error parsing JSON:", line, error)
+            // 不抛出错误，继续处理下一行
           }
+        }
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = new TextDecoder().decode(value)
+          // 处理可能包含多个完整或不完整数据块的情况
+          const lines = chunk.split("\n")
+
+          for (const line of lines) {
+            try {
+              processLine(line)
+            } catch (error) {
+              console.error("Error processing line:", error)
+              // 继续处理下一行，不中断整个流程
+            }
+          }
+        }
+      } else {
+        // 处理非流式响应
+        try {
+          const responseText = await response.text()
+          
+          if (!response.ok) {
+            let errorMessage = "请求失败"
+            try {
+              const errorData = JSON.parse(responseText)
+              errorMessage = errorData.error?.message || errorMessage
+            } catch (e) {
+              // 如果无法解析为JSON，使用原始响应文本
+              errorMessage = responseText || errorMessage
+            }
+            throw new Error(errorMessage)
+          }
+          
+          let data
+          try {
+            data = JSON.parse(responseText)
+          } catch (e) {
+            console.error("解析响应数据失败:", e)
+            throw new Error("解析响应数据失败")
+          }
+          
+          let content = ""
+          
+          if (data.choices && data.choices[0]) {
+            // 处理不同的响应格式
+            if (data.choices[0].message && data.choices[0].message.content) {
+              // OpenAI格式
+              content = data.choices[0].message.content
+            } else if (data.choices[0].text) {
+              // 可能的其他格式
+              content = data.choices[0].text
+            } else if (typeof data.choices[0] === 'string') {
+              // 纯文本格式
+              content = data.choices[0]
+            }
+          } else if (data.content) {
+            // 直接包含content的格式
+            content = data.content
+          } else {
+            throw new Error("无法解析响应数据")
+          }
+          
+          currentMessageRef.current.content = content
+          
+          setMessages(prev => [...prev, { 
+            role: "assistant", 
+            content: content 
+          }])
+        } catch (error) {
+          console.error("处理响应失败:", error)
+          throw error
         }
       }
     } catch (error) {
@@ -748,31 +803,24 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
         <div className="container max-w-4xl mx-auto px-4 flex flex-col h-screen">
           <header className="sticky top-0 py-4 px-2 bg-background/80 backdrop-blur z-40 border-b border-border/40">
             <div className="flex items-center justify-center gap-2">
-              <Select
-                value={currentModel}
-                onValueChange={(value) => {
-                  setCurrentModel(value)
-                  onModelChange(value)
-                }}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setUseStreaming(!useStreaming)}
+                className={`bg-muted/30 ${useStreaming ? 'text-green-500' : 'text-gray-500'}`}
+                title={useStreaming ? "当前为流式响应" : "当前为非流式响应"}
               >
-                <SelectTrigger className="w-[260px] bg-muted/30">
-                  <SelectValue placeholder="Select a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "claude-3-5-sonnet-20241022",
-                    "claude-3-5-sonnet-latest",
-                    "claude-3-5-haiku-20241022",
-                    "claude-3-5-haiku-latest",
-                    "claude-3-opus-20240229",
-                    "claude-3-opus-latest"
-                  ].map((model) => (
-                    <SelectItem key={model} value={model}>
-                      {model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {useStreaming ? "流式" : "非流式"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setAutoExpandThinking(!autoExpandThinking)}
+                className={`bg-muted/30 ${autoExpandThinking ? 'text-green-500' : 'text-gray-500'}`}
+                title={autoExpandThinking ? "思考内容默认展开" : "思考内容默认折叠"}
+              >
+                思考
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -826,7 +874,7 @@ export function Chat({ selectedModel, onModelChange, apiTokens }: ChatProps) {
           </div>
           <div className="sticky bottom-0 bg-background/80 backdrop-blur border-t border-border/40 w-full">
             <div className="py-4 px-2">
-              <MarkdownEditor
+              <ChatInput
                 value={input}
                 onChange={setInput}
                 onSubmit={handleSubmit}

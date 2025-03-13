@@ -17,7 +17,7 @@ mod handlers;
 mod models;
 
 use crate::{config::Config, handlers::AppState};
-use axum::routing::{post, Router};
+use axum::routing::{post, get, Router};
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -88,6 +88,8 @@ async fn main() -> anyhow::Result<()> {
     // Build router
     let app = Router::new()
         .route("/v1/chat/completions", post(handlers::handle_chat))
+        .route("/v1/env/update", post(handlers::update_env_variables))
+        .route("/v1/env/variables", get(handlers::get_env_variables))
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(state);

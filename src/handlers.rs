@@ -21,8 +21,8 @@ use crate::clients::anthropic::StreamEvent;
 use crate::models::request::Message;
 use axum::{
     extract::State,
-    response::{sse::Event, IntoResponse},
-    Json,
+    response::{sse::Event, IntoResponse, Json},
+    Json as AxumJson,
 };
 use chrono::{Utc, Duration};
 use futures::StreamExt;
@@ -30,6 +30,10 @@ use std::{sync::Arc, collections::HashMap};
 use tokio_stream::wrappers::ReceiverStream;
 use crate::clients::deepseek::get_deepseek_default_model;
 use dotenv::dotenv;
+use std::fs;
+use std::io::Write;
+use serde::Deserialize;
+use serde_json::json;
 
 /// Application state shared across request handlers.
 ///
@@ -694,4 +698,93 @@ pub(crate) async fn chat_stream(
     });
 
     Ok(SseResponse::new(stream))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EnvUpdateRequest {
+    pub variables: HashMap<String, String>,
+}
+
+/// 更新.env文件中的环境变量
+pub async fn update_env_variables(
+    AxumJson(payload): AxumJson<EnvUpdateRequest>,
+) -> Result<AxumJson<serde_json::Value>> {
+    let current_dir = std::env::current_dir().map_err(|e| ApiError::Internal {
+        message: format!("无法获取当前目录: {}", e),
+    })?;
+
+    let env_path = current_dir.join(".env");
+    
+    // 读取现有的.env文件内容
+    let mut env_content = match fs::read_to_string(&env_path) {
+        Ok(content) => content,
+        Err(_) => String::new(), // 如果文件不存在，创建一个新的
+    };
+
+    // 更新环境变量
+    for (key, value) in payload.variables {
+        // 检查变量是否已存在
+        if let Some(line_start) = env_content.find(&format!("{}=", key)) {
+            // 找到行的结束位置
+            let line_end = env_content[line_start..].find('\n').map(|pos| line_start + pos)
+                .unwrap_or(env_content.len());
+            
+            // 替换现有的行
+            let old_line = &env_content[line_start..line_end];
+            let new_line = format!("{}={}", key, value);
+            env_content = env_content.replace(old_line, &new_line);
+        } else {
+            // 添加新的环境变量
+            if !env_content.ends_with('\n') && !env_content.is_empty() {
+                env_content.push('\n');
+            }
+            env_content.push_str(&format!("{}={}\n", key, value));
+        }
+    }
+
+    // 写入文件
+    let mut file = fs::File::create(&env_path).map_err(|e| ApiError::Internal {
+        message: format!("无法创建.env文件: {}", e),
+    })?;
+
+    file.write_all(env_content.as_bytes()).map_err(|e| ApiError::Internal {
+        message: format!("无法写入.env文件: {}", e),
+    })?;
+
+    Ok(AxumJson(json!({
+        "status": "success",
+        "message": "环境变量已更新"
+    })))
+}
+
+/// 获取.env文件中的所有环境变量
+pub async fn get_env_variables() -> Result<AxumJson<serde_json::Value>> {
+    let current_dir = std::env::current_dir().map_err(|e| ApiError::Internal {
+        message: format!("无法获取当前目录: {}", e),
+    })?;
+
+    let env_path = current_dir.join(".env");
+    
+    // 读取.env文件内容
+    let env_content = fs::read_to_string(&env_path).map_err(|e| ApiError::Internal {
+        message: format!("无法读取.env文件: {}", e),
+    })?;
+
+    // 解析环境变量
+    let mut variables = HashMap::new();
+    for line in env_content.lines() {
+        let line = line.trim();
+        if !line.is_empty() && !line.starts_with('#') {
+            if let Some(pos) = line.find('=') {
+                let key = line[..pos].trim();
+                let value = line[pos + 1..].trim();
+                variables.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+
+    Ok(AxumJson(json!({
+        "status": "success",
+        "variables": variables
+    })))
 }
