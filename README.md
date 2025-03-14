@@ -36,7 +36,13 @@ In the future, I will further explore diverse model combinations and prompt engi
 2025-03-09: 更新 1.0 版本，支持chatbox和cherrystudio
 </div>
 </details>
-
+<details open>
+<summary><strong>介绍视频：</strong></summary> 
+<div>
+ <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">前端大版本更新介绍</a>
+</div>
+</details>
+</details>
 
 ## 概述
 
