@@ -222,7 +222,7 @@ DeepClaude可以在你自己的基础设施上进行自主托管。请按照以�
 
 # 星星记录
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yuanhang110/DeepClaude_Pro&type=Date)](https://star-history.com/#yuanhang110/DeepClaude&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=yuanhang110/DeepClaude_Pro&type=Date)](https://star-history.com/#yuanhang110/DeepClaude_Pro&Date)
 
 ## 贡献代码
 我们欢迎贡献！请参阅我们的[贡献指南](CONTRIBUTING.md)，了解有关以下方面的详细信息：
