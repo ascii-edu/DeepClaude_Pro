@@ -541,14 +541,14 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                             console.log("模式已更改为:", value);
                           }}
                         >
-                          <option value="normal">普通模式 (仅推理内容)</option>
-                          <option value="full">完整模式 (推理内容+普通内容)</option>
+                          <option value="normal">普通模式 (仅思考内容)</option>
+                          <option value="full">完整模式 (仅结果内容)</option>
                         </select>
                       </div>
                     </FormControl>
                     <div className="text-xs text-muted-foreground mt-1">
-                      普通模式: 仅将DeepSeek的推理内容传递给Claude<br/>
-                      完整模式: 将DeepSeek的推理内容和普通内容都传递给Claude
+                      普通模式: 仅将DeepSeek的思考内容传递给Claude<br/>
+                      完整模式: 将DeepSeek不包括思考内容的结果内容传给Claude
                     </div>
                   </FormItem>
                 )}
