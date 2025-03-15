@@ -15,6 +15,7 @@ mod config;
 mod error;
 mod handlers;
 mod models;
+mod utils;
 
 use crate::{config::Config, handlers::AppState};
 use axum::routing::{post, get, Router};
@@ -25,6 +26,7 @@ use tower_http::{
 };
 use tracing_subscriber::fmt::time::FormatTime;
 use chrono::Utc;
+use dotenv::dotenv;
 
 /// Application entry point.
 ///
@@ -94,8 +96,30 @@ async fn main() -> anyhow::Result<()> {
         .layer(cors)
         .with_state(state);
 
+    // 加载环境变量
+    dotenv().ok();
+    
+    // 设置默认值
+    if std::env::var("PORT").is_err() {
+        std::env::set_var("PORT", "1337");
+    }
+    
+    // 获取端口
+    let port = utils::get_env_var("PORT", "1337")
+        .parse::<u16>()
+        .unwrap_or(1337);
+
+    // 获取并记录当前MODE设置
+    let mode = utils::get_mode();
+    tracing::info!("当前运行模式: {}", mode);
+    if mode == "full" {
+        tracing::info!("已启用完整模式，DeepSeek的推理内容和普通内容都将传递给Claude");
+    } else {
+        tracing::info!("已启用普通模式，仅DeepSeek的推理内容将传递给Claude");
+    }
+
     // Get host and port from config
-    let addr: SocketAddr = format!("{}:{}", config.server.host, config.server.port)
+    let addr: SocketAddr = format!("{}:{}", config.server.host, port)
         .parse()
         .expect("Invalid host/port configuration");
 

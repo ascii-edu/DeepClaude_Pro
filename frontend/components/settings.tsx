@@ -32,6 +32,7 @@ interface SettingsFormValues {
   deepseekBody: { key: string; value: string }[]
   anthropicHeaders: { key: string; value: string }[]
   anthropicBody: { key: string; value: string }[]
+  mode: string
 }
 
 interface SettingsProps {
@@ -160,7 +161,8 @@ export function Settings({ onSettingsChange }: SettingsProps) {
       deepseekHeaders: [{ key: "", value: "" }],
       deepseekBody: [{ key: "", value: "" }],
       anthropicHeaders: [{ key: "anthropic-version", value: "2023-06-01" }],
-      anthropicBody: [{ key: "", value: "" }]
+      anthropicBody: [{ key: "", value: "" }],
+      mode: "normal"
     }
   })
 
@@ -234,6 +236,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
             CLAUDE_OPENAI_TYPE_API_URL: values.claudeOpenaiTypeApiUrl,
             CLAUDE_DEFAULT_MODEL: values.claudeDefaultModel,
             DEEPSEEK_DEFAULT_MODEL: values.deepseekDefaultModel,
+            MODE: values.mode,
           }
         })
       });
@@ -242,7 +245,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
         throw new Error('保存设置失败');
       }
 
-      toast({
+      centerToast({
         title: "设置已保存",
         description: "所有环境变量已成功更新",
       })
@@ -257,7 +260,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
       })
     } catch (error) {
       console.error('保存设置失败:', error)
-      toast({
+      centerToast({
         title: "错误",
         description: "保存设置失败，请重试",
         variant: "destructive"
@@ -281,7 +284,8 @@ export function Settings({ onSettingsChange }: SettingsProps) {
       deepseekHeaders: [],
       deepseekBody: [],
       anthropicHeaders: [],
-      anthropicBody: []
+      anthropicBody: [],
+      mode: "normal"
     })
     
     // 重置独立状态
@@ -339,6 +343,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
           claudeOpenaiTypeApiUrl: variables.CLAUDE_OPENAI_TYPE_API_URL || '',
           claudeDefaultModel: variables.CLAUDE_DEFAULT_MODEL || '',
           deepseekDefaultModel: variables.DEEPSEEK_DEFAULT_MODEL || '',
+          mode: variables.MODE || 'normal',
         };
         
         console.log('准备设置表单值:', newFormValues);
@@ -483,7 +488,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                   onClick={() => {
                     form.reset()
                     localStorage.removeItem('deepclaude-settings')
-                    toast({
+                    centerToast({
                       title: "设置已重置",
                       description: "所有设置已恢复默认值",
                     })
@@ -515,6 +520,36 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                     <FormControl>
                       <Input type="number" placeholder="1337" {...field} />
                     </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="mode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>模式</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <select
+                          className="w-full h-10 px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          value={field.value || "normal"}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value);
+                            console.log("模式已更改为:", value);
+                          }}
+                        >
+                          <option value="normal">普通模式 (仅推理内容)</option>
+                          <option value="full">完整模式 (推理内容+普通内容)</option>
+                        </select>
+                      </div>
+                    </FormControl>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      普通模式: 仅将DeepSeek的推理内容传递给Claude<br/>
+                      完整模式: 将DeepSeek的推理内容和普通内容都传递给Claude
+                    </div>
                   </FormItem>
                 )}
               />

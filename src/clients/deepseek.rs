@@ -279,7 +279,7 @@ impl DeepSeekClient {
             // Set defaults only if not provided in config
             "model": config.body.get("model").unwrap_or(&serde_json::json!(default_model)),
             "max_tokens": config.body.get("max_tokens").unwrap_or(&serde_json::json!(8192)),
-            "temperature": config.body.get("temperature").unwrap_or(&serde_json::json!(1.0)),
+            "temperature": config.body.get("temperature").unwrap_or(&serde_json::json!(0.6)),
             "response_format": {
                 "type": "text"
             }
@@ -471,7 +471,7 @@ impl DeepSeekClient {
                 };
                 
                 let chunk_str = String::from_utf8_lossy(&chunk);
-                tracing::debug!("收到DeepSeek原始数据块: {}", chunk_str);
+                //tracing::debug!("收到DeepSeek原始数据块: {}", chunk_str);
                 data.push_str(&chunk_str);
 
                 let mut start = 0;
@@ -487,31 +487,9 @@ impl DeepSeekClient {
                             tracing::debug!("DeepSeek流结束，内容状态: content={}, reasoning={}", 
                                 !content_buffer.is_empty(), !reasoning_buffer.is_empty());
                             
-                            // 不再发送最终的推理内容，避免重复
+                            // 不再在此发送任何内容，完全由handlers.rs负责处理
+                            // 这样可以防止重复发送
                             
-                            // 发送最终的普通内容（如果有）
-                            if !content_buffer.is_empty() {
-                                let default_model = get_deepseek_default_model();
-                                yield Ok(StreamResponse {
-                                    id: "deepseek_generated_id".to_string(),
-                                    object: "chat.completion.chunk".to_string(),
-                                    created: chrono::Utc::now().timestamp(),
-                                    model: default_model,
-                                    choices: vec![StreamChoice {
-                                        index: 0,
-                                        delta: StreamDelta {
-                                            role: None,
-                                            content: Some(content_buffer.clone()),
-                                            reasoning_content: None,
-                                        },
-                                        logprobs: None,
-                                        finish_reason: Some("stop".to_string()),
-                                    }],
-                                    usage: None,
-                                    service_tier: "default".to_string(),
-                                    system_fingerprint: "".to_string(),
-                                });
-                            }
                             break;
                         }
                         
@@ -535,7 +513,15 @@ impl DeepSeekClient {
                                     }
                                 }
                                 
-                                yield Ok(response);
+                                // 只转发推理内容的流事件，不转发普通内容的流事件
+                                // 这样可以避免普通内容被输出两次
+                                if response.choices.first().and_then(|c| c.delta.reasoning_content.as_ref()).is_some() {
+                                    yield Ok(response);
+                                } else if response.choices.first().and_then(|c| c.delta.role.as_ref()).is_some() {
+                                    // 仍然需要传递角色信息
+                                    yield Ok(response);
+                                }
+                                // 不传递普通内容的delta，因为我们会在流结束时一次性发送所有内容
                             }
                             Err(e) => {
                                 tracing::warn!("解析StreamResponse失败: {}", e);

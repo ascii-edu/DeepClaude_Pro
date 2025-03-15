@@ -296,6 +296,16 @@ impl AnthropicClient {
                     })?,
             );
             
+            // 添加Authorization头
+            headers.insert(
+                "Authorization",
+                format!("Bearer {}", anthropic_token)
+                    .parse()
+                    .map_err(|e| ApiError::Internal { 
+                        message: format!("无效的Authorization头: {}", e) 
+                    })?,
+            );
+            
             // Anthropic特有的版本头
             headers.insert(
                 "anthropic-version",
@@ -303,6 +313,16 @@ impl AnthropicClient {
                     .parse()
                     .map_err(|e| ApiError::Internal { 
                         message: format!("无效的anthropic版本: {}", e) 
+                    })?,
+            );
+
+            // 添加流式处理所需的头部
+            headers.insert(
+                "accept",
+                "text/event-stream"
+                    .parse()
+                    .map_err(|e| ApiError::Internal {
+                        message: format!("无效的accept头: {}", e)
                     })?,
             );
         }
@@ -316,20 +336,13 @@ impl AnthropicClient {
                     message: format!("无效的内容类型: {}", e) 
                 })?,
         );
-        
-        headers.insert(
-            "accept",
-            "application/json"
-                .parse()
-                .map_err(|e| ApiError::Internal {
-                    message: format!("无效的accept头: {}", e)
-                })?,
-        );
 
         // 添加自定义头部
         if let Some(custom) = custom_headers {
             headers.extend(super::build_headers(custom)?);
         }
+
+        tracing::debug!("最终请求头: {:?}", headers);
 
         Ok(headers)
     }
@@ -389,7 +402,9 @@ impl AnthropicClient {
             "messages": filtered_messages,
             "stream": stream,
             "model": model_value,
-            "max_tokens": config.body.get("max_tokens").unwrap_or(&default_max_tokens_json)
+            "max_tokens": config.body.get("max_tokens").unwrap_or(&default_max_tokens_json),
+            "temperature": config.body.get("temperature").unwrap_or(&serde_json::json!(0.7)),
+            "top_p": config.body.get("top_p").unwrap_or(&serde_json::json!(0.95))
         });
 
         // Add system if present
@@ -415,6 +430,8 @@ impl AnthropicClient {
             }
             request_value = serde_json::Value::Object(map);
         }
+
+        tracing::debug!("请求体: {}", serde_json::to_string_pretty(&request_value).unwrap_or_default());
 
         // Convert the merged JSON value into our request structure
         serde_json::from_value(request_value).unwrap_or_else(|_| AnthropicRequest {
@@ -660,15 +677,22 @@ impl AnthropicClient {
             let mut _has_content = false;
             let mut stream_ended = false;
             
+            tracing::debug!("开始处理流式响应");
+            
             while let Some(chunk_result) = stream.next().await {
                 // 如果流已经结束，不再处理新的数据块
                 if stream_ended {
+                    tracing::debug!("流已结束，停止处理");
                     break;
                 }
                 
                 let chunk = match chunk_result {
-                    Ok(c) => c,
+                    Ok(c) => {
+                        //tracing::debug!("收到新的数据块，大小: {} bytes", c.len());
+                        c
+                    }
                     Err(e) => {
+                        tracing::error!("读取数据块时出错: {}", e);
                         yield Err(ApiError::AnthropicError { 
                             message: format!("Stream error: {}", e),
                             type_: "stream_error".to_string(),
@@ -680,6 +704,7 @@ impl AnthropicClient {
                 };
                 
                 let chunk_str = String::from_utf8_lossy(&chunk);
+                //tracing::debug!("原始数据块内容: {}", chunk_str);
                 data.push_str(&chunk_str);
 
                 let mut start = 0;
@@ -693,27 +718,57 @@ impl AnthropicClient {
                         continue;
                     }
 
+                    //tracing::debug!("处理事件数据: {}", raw_event);
+
                     // 解析事件数据
                     if raw_event.starts_with("data: ") {
                         let json_str = &raw_event["data: ".len()..];
                         
                         // 检查是否是结束标记
                         if json_str == "[DONE]" {
+                            tracing::debug!("收到结束标记 [DONE]");
                             stream_ended = true;
                             break;
                         }
+
+                        // 尝试解析为OpenAI格式的响应
+                        if let Ok(openai_response) = serde_json::from_str::<serde_json::Value>(json_str) {
+                            if let Some(choices) = openai_response.get("choices").and_then(|c| c.as_array()) {
+                                if let Some(choice) = choices.first() {
+                                    if let Some(delta) = choice.get("delta") {
+                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                            tracing::debug!("解析到OpenAI格式的内容: {}", content);
+                                            content_buffer.push_str(content);
+                                            yield Ok(StreamEvent::ContentBlockDelta {
+                                                index: 0,
+                                                delta: ContentDelta {
+                                                    delta_type: "text".to_string(),
+                                                    text: content.to_string(),
+                                                },
+                                            });
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         
+                        // 如果不是OpenAI格式，尝试解析为Anthropic格式
                         match serde_json::from_str::<StreamEvent>(json_str) {
                             Ok(event) => {
                                 _has_content = true;
                                 match &event {
                                     StreamEvent::ContentBlockDelta { delta, .. } => {
+                                        //tracing::debug!("解析到Anthropic格式的内容: {}", delta.text);
                                         content_buffer.push_str(&delta.text);
                                     }
                                     StreamEvent::MessageStop => {
+                                        tracing::debug!("收到消息结束事件");
                                         stream_ended = true;
                                     }
-                                    _ => {}
+                                    _ => {
+                                        tracing::debug!("收到其他类型事件: {:?}", event);
+                                    }
                                 }
                                 yield Ok(event);
                             }
@@ -730,6 +785,8 @@ impl AnthropicClient {
                                 }
                             }
                         }
+                    } else {
+                        //tracing::debug!("跳过非data事件: {}", raw_event);
                     }
                 }
 

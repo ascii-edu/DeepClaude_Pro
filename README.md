@@ -24,6 +24,9 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>更新日志：</strong></summary> 
 <div>
+2025-03-15: 更新 1.2版本，后端大版本更新，新增完整模式，前端界面支持配置完整或者普通模式，后续benchmark的效果测试紧随其后，欢迎先预览体验
+</div>
+<div>
 2025-03-14: 更新 1.1版本，支持前端界面配置环境变量，前端直接支持对话
 </div>
 <div>
@@ -39,9 +42,13 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>介绍视频：</strong></summary> 
 <div>
- <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">前端大版本更新介绍</a>
+ <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.1前端大版本更新介绍</a>
+</div>
+<div>
+ <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.2后端大版本更新介绍(视频马上更新)</a>
 </div>
 </details>
+
 </details>
 
 ## 概述
@@ -108,13 +115,27 @@ DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度�
    http://localhost:3000/chat
    ```
 
+### 模式切换
+
+**方法一：**
+
+在前端界面直接设置，在底下编辑完成后，可以直接保存环境变量到.env文件中
+
+<img src="picture/mode.png" width="150" style="zoom: 200%;" >
+
+**方法二：**
+
+在项目根目录中编辑`.env`文件：
+
+mode变量可以编辑为full或者normal
+
 ### 配置方法
 
 **方法一：**
 
 在前端界面直接设置，在底下编辑完成后，可以直接保存环境变量到.env文件中
 
-<img src="picture/setting.png" width="100" style="zoom: 200%;" >
+<img src="picture/setting.png" width="150" style="zoom: 200%;" >
 
 **方法二：**
 
@@ -129,20 +150,21 @@ DEEPSEEK_API_KEY=
 ANTHROPIC_API_KEY=
 # 服务的端口
 PORT=1337
-
+# 选择模式，包括full和normal，full是包括r1的思考内容和原始结果，normal是只包含思考内容，所以full模型下，获取calude结果时间更长
+MODE=full
 # API URL配置
 # DeeepSeek的密钥
 # 如果使用deepseek格式的api就填DEEPSEEK_OPENAI_TYPE_API_URL
-DEEPSEEK_OPENAI_TYPE_API_URL=
+DEEPSEEK_OPENAI_TYPE_API_URL=https://ark.cn-beijing.volces.com/api/v3/chat/completions
 # Claude的密钥，底下两种2选1填
 # 如果使用claude格式的api就填ANTHROPIC_API_URL
-ANTHROPIC_API_URL=
+ANTHROPIC_API_URL=https://api.gptsapi.net/v1/messages
 # 如果使用claude格式的api就填CLAUDE_OPENAI_TYPE_API_URL
-CLAUDE_OPENAI_TYPE_API_URL=
+CLAUDE_OPENAI_TYPE_API_URL=https://api.gptsapi.net/v1/messages
 # 模型配置
-CLAUDE_DEFAULT_MODEL=
+CLAUDE_DEFAULT_MODEL=wild-3-7-sonnet-20250219
 #DEEPSEEK_DEFAULT_MODEL=deepseek-r1-250120
-DEEPSEEK_DEFAULT_MODEL=
+DEEPSEEK_DEFAULT_MODEL=deepseek-r1-250120
 ```
 
 ## API使用方法
