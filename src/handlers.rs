@@ -344,10 +344,10 @@ pub(crate) async fn chat(
         // 在full模式下，将DeepSeek的推理内容和普通内容都传递给Claude
         let mut thinking_content = String::new();
         
-        // 添加推理内容
-        if !reasoning_content.trim().is_empty() {
-            thinking_content.push_str(&reasoning_content);
-        }
+        // // 添加推理内容
+        // if !reasoning_content.trim().is_empty() {
+        //     thinking_content.push_str(&reasoning_content);
+        // }
         
         // 添加普通内容（如果有）
         if !normal_content.trim().is_empty() {
@@ -687,10 +687,10 @@ pub(crate) async fn chat_stream(
             // 在full模式下，将DeepSeek的推理内容和普通内容都传递给Claude
             let mut thinking_content = String::new();
             
-            // 添加推理内容
-            if !reasoning_content.trim().is_empty() {
-                thinking_content.push_str(&reasoning_content);
-            }
+            // // 添加推理内容
+            // if !reasoning_content.trim().is_empty() {
+            //     thinking_content.push_str(&reasoning_content);
+            // }
             
             // 添加普通内容（如果有）
             if !normal_content.trim().is_empty() {
