@@ -431,7 +431,7 @@ impl AnthropicClient {
             request_value = serde_json::Value::Object(map);
         }
 
-        tracing::debug!("请求体: {}", serde_json::to_string_pretty(&request_value).unwrap_or_default());
+        //tracing::debug!("请求体: {}", serde_json::to_string_pretty(&request_value).unwrap_or_default());
 
         // Convert the merged JSON value into our request structure
         serde_json::from_value(request_value).unwrap_or_else(|_| AnthropicRequest {
