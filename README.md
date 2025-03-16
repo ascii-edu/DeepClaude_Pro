@@ -123,6 +123,7 @@ DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度�
    ```
 
 ### 模式切换
+测试结果在：<a href="https://github.com/yuanhang110/DeepClaude_Benchmark">deepclaude的benchmark项目中</a>, full模式是参照aider官方的架构师编辑师模式实现，需要等更长时间，有更好的效果。
 
 **方法一：**
 
