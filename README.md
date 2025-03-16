@@ -131,6 +131,20 @@ mode变量可以编辑为full或者normal
 
 ### 配置方法
 
+第一步执行环境文件的模版迁移，会将 `.env.example` 文件复制为 `.env` 文件
+
+mac os中
+
+```
+cp .env.example .env
+```
+
+windows中
+
+```
+copy .env.example .env
+```
+
 **方法一：**
 
 在前端界面直接设置，在底下编辑完成后，可以直接保存环境变量到.env文件中
