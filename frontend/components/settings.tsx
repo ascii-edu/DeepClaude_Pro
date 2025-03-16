@@ -548,7 +548,7 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                     </FormControl>
                     <div className="text-xs text-muted-foreground mt-1">
                       普通模式: 仅将DeepSeek的思考内容传递给Claude<br/>
-                      完整模式: 将DeepSeek不包括思考内容的结果内容传给Claude
+                      完整模式: 将DeepSeek不包括思考内容的最终结果传给Claude
                     </div>
                   </FormItem>
                 )}

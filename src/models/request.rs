@@ -92,9 +92,40 @@ impl ApiRequest {
 
         // Add system message first
         if let Some(system) = &self.system {
+            // 为 DeepSeek R1 添加特定的系统提示词
+            let deepseek_system_prompt = format!("Act as an expert architect engineer and provide direction to your editor engineer.
+Study the change request and the current code.
+Describe how to modify the code to complete the request.
+The editor engineer will rely solely on your instructions, so make them unambiguous and complete.
+Explain all needed code changes clearly and completely, but concisely.
+Just show the changes needed.
+
+DO NOT show the entire updated function/file/etc!
+
+Always reply to the user in chinese.
+
+{}", system);
+            
             messages.push(Message {
                 role: Role::System,
-                content: system.clone(),
+                content: deepseek_system_prompt,
+            });
+        } else {
+            // 如果用户没有提供系统提示词，则使用默认的系统提示词
+            let default_system_prompt = "Act as an expert architect engineer and provide direction to your editor engineer.
+Study the change request and the current code.
+Describe how to modify the code to complete the request.
+The editor engineer will rely solely on your instructions, so make them unambiguous and complete.
+Explain all needed code changes clearly and completely, but concisely.
+Just show the changes needed.
+
+DO NOT show the entire updated function/file/etc!
+
+Always reply to the user in chinese.";
+            
+            messages.push(Message {
+                role: Role::System,
+                content: default_system_prompt.to_string(),
             });
         }
 

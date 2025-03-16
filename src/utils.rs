@@ -6,7 +6,7 @@
 /// 
 /// 返回值:
 /// - "normal": 只将DeepSeek的推理内容传递给Claude（默认）
-/// - "full": 将DeepSeek的推理内容和普通内容都传递给Claude
+/// - "full": 将DeepSeek的最终结果都传递给Claude
 pub fn get_mode() -> String {
     tracing::debug!("尝试从.env文件读取MODE变量");
     

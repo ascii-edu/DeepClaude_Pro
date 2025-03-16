@@ -166,7 +166,7 @@ DEEPSEEK_API_KEY=
 ANTHROPIC_API_KEY=
 # 服务的端口
 PORT=1337
-# 选择模式，包括full和normal，full是包括r1的思考内容和原始结果，normal是只包含思考内容，所以full模型下，获取calude结果时间更长
+# 选择模式，包括full和normal，full是包括r1的最终结果，normal是只包含思考内容，所以full模型下，获取calude结果时间更长
 MODE=full
 # API URL配置
 # DeeepSeek的密钥

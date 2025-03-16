@@ -225,7 +225,7 @@ pub(crate) fn format_cost(cost: f64) -> String {
 /// 
 /// 返回值:
 /// - "normal": 只将DeepSeek的推理内容传递给Claude（默认）
-/// - "full": 将DeepSeek的推理内容和普通内容都传递给Claude
+/// - "full": 将DeepSeek的最终结果都传递给Claude
 fn get_mode() -> String {
     utils::get_mode()
 }
@@ -289,8 +289,30 @@ pub(crate) async fn chat(
     let deepseek_client = DeepSeekClient::new(deepseek_token);
     let anthropic_client = AnthropicClient::new(anthropic_token);
 
-    // Get messages with system prompt
-    let messages = request.get_messages_with_system();
+    // 获取当前模式
+    let mode = get_mode();
+    
+    // 获取系统提示和消息
+    let messages = if mode == "full" {
+        // full模式下使用带有特定系统提示的消息
+        request.get_messages_with_system()
+    } else {
+        // normal模式下只使用原始消息
+        let mut messages = Vec::new();
+        
+        // 添加系统消息（如果有）
+        if let Some(system) = &request.system {
+            messages.push(Message {
+                role: Role::System,
+                content: system.clone(),
+            });
+        }
+        
+        // 添加剩余的消息
+        messages.extend(request.messages.iter().filter(|msg| !matches!(msg.role, Role::System)).cloned());
+        
+        messages
+    };
 
     // Call DeepSeek API
     let deepseek_response = deepseek_client.chat(messages.clone(), &request.deepseek_config).await?;
@@ -319,16 +341,13 @@ pub(crate) async fn chat(
         .and_then(|c| c.message.content.as_ref())
         .unwrap_or(&empty_string);
 
-    // 获取当前模式
-    let mode = get_mode();
-    
     // 检查内容是否存在
     let has_normal_content = !normal_content.trim().is_empty();
     
     // 将推理内容和普通内容组合在一起
     let thinking_content = if has_normal_content && mode == "full" {
-        // 原始回答会通过content字段单独发送，所以这里不需要重复包含
-        format!("<thinking>\n{}\ndeepseek原始回答:{}</thinking>", reasoning_content, normal_content)
+        // 在full模式下，只包含原始回答
+        format!("<thinking>\ndeepseek原始回答:{}</thinking>", normal_content)
     } else {
         format!("<thinking>\n{}\n</thinking>", reasoning_content)
     };
@@ -341,28 +360,12 @@ pub(crate) async fn chat(
     
     // 根据模式决定如何处理DeepSeek的输出
     if mode == "full" {
-        // 在full模式下，将DeepSeek的推理内容和普通内容都传递给Claude
-        let mut thinking_content = String::new();
-        
-        // // 添加推理内容
-        // if !reasoning_content.trim().is_empty() {
-        //     thinking_content.push_str(&reasoning_content);
-        // }
-        
-        // 添加普通内容（如果有）
+        // 在full模式下，已经流式发送了deepseek的原始回答，只需添加到Claude消息中
         if !normal_content.trim().is_empty() {
-            // if !thinking_content.is_empty() {
-            //     thinking_content.push_str("\n");
-            // }
-            thinking_content.push_str(&format!("用于参考的回答，如果是架构设计方面的内容请放心参考，但是具体实现代码请以自己的理解为主:{}", normal_content.trim()));
-        }
-        
-        // 如果有内容，添加到消息中
-        if !thinking_content.is_empty() {
-            tracing::info!("添加完整thinking内容到Claude消息");
+            tracing::info!("添加原始回答的thinking内容到Claude消息");
             anthropic_messages.push(Message {
                 role: Role::Assistant,
-                content: format!("<thinking>\n{}</thinking>", thinking_content),
+                content: format!("<thinking>\ndeepseek原始回答:{}</thinking>", normal_content.trim()),
             });
         }
     } else {
@@ -376,10 +379,30 @@ pub(crate) async fn chat(
         }
     }
 
+    // 添加Claude的系统提示词，仅在full模式下
+    let combined_system_prompt = if mode == "full" {
+        let claude_system_prompt = "Act as an expert software developer who edits source code.
+You are diligent and tireless!
+You NEVER leave comments describing code without implementing it!
+You always COMPLETELY IMPLEMENT the needed code!
+Describe each change with a *SEARCH/REPLACE block* per the examples below.
+All changes to files must use this *SEARCH/REPLACE block* format.
+ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!";
+
+        // 结合用户的系统提示词（如果有的话）
+        Some(match request.get_system_prompt() {
+            Some(user_system) => format!("{}\n\n{}", claude_system_prompt, user_system),
+            None => claude_system_prompt.to_string(),
+        })
+    } else {
+        // normal模式下，保持原来的系统提示词
+        request.get_system_prompt().map(String::from)
+    };
+
     // Call Anthropic API
     let anthropic_response = anthropic_client.chat(
         anthropic_messages,
-        request.get_system_prompt().map(String::from),
+        combined_system_prompt,
         &request.anthropic_config
     ).await?;
     
@@ -478,8 +501,20 @@ pub(crate) async fn chat(
             index: 0,
             message: ResponseMessage {
                 role: "assistant".to_string(),
-                content: content.into_iter().fold(String::new(), |acc, c| acc + &c.text),
-                reasoning_content: Some(reasoning_content.clone()),
+                // 只包含Claude的响应，不包含thinking标签中的内容
+                content: anthropic_response.content.into_iter()
+                    .map(|block| ContentBlock::from_anthropic(block).text)
+                    .collect::<Vec<_>>()
+                    .join("")
+                    .trim_start() // 去掉开头的所有空白字符，包括换行符
+                    .to_string(),
+                reasoning_content: if mode == "full" && has_normal_content {
+                    // full模式下只使用原始回答部分作为reasoning_content
+                    Some(format!("deepseek原始回答:{}", normal_content))
+                } else {
+                    // normal模式下使用完整的reasoning_content
+                    Some(reasoning_content.clone())
+                },
             },
             finish_reason: "stop".to_string(),
         }],
@@ -525,8 +560,30 @@ pub(crate) async fn chat_stream(
     let deepseek_client = DeepSeekClient::new(deepseek_token);
     let anthropic_client = AnthropicClient::new(anthropic_token);
 
-    // 获取带系统提示的消息
-    let messages = request.get_messages_with_system();
+    // 获取当前模式
+    let mode = get_mode();
+
+    // 获取系统提示和消息
+    let messages = if mode == "full" {
+        // full模式下使用带有特定系统提示的消息
+        request.get_messages_with_system()
+    } else {
+        // normal模式下只使用原始消息
+        let mut messages = Vec::new();
+        
+        // 添加系统消息（如果有）
+        if let Some(system) = &request.system {
+            messages.push(Message {
+                role: Role::System,
+                content: system.clone(),
+            });
+        }
+        
+        // 添加剩余的消息
+        messages.extend(request.messages.iter().filter(|msg| !matches!(msg.role, Role::System)).cloned());
+        
+        messages
+    };
 
     // 创建通道，使用正确的类型
     let (tx, rx) = tokio::sync::mpsc::channel::<std::result::Result<Event, std::convert::Infallible>>(100);
@@ -567,8 +624,6 @@ pub(crate) async fn chat_stream(
         tracing::info!("流处理 - 发送角色事件成功");
         
         // 流式输出 DeepSeek 的推理内容
-        let mut has_normal_content = false;
-        
         while let Some(result) = deepseek_stream.next().await {
             if let Ok(response) = result {
                 if let Some(choice) = response.choices.first() {
@@ -578,40 +633,57 @@ pub(crate) async fn chat_stream(
                             // 记录已经处理过的推理内容，避免重复
                             reasoning_content.push_str(reasoning);
                             
-                            // 发送推理内容事件（流式）
-                            let reasoning_event = serde_json::json!({
-                                "id": uuid::Uuid::new_v4().to_string(),
-                                "object": "chat.completion.chunk",
-                                "created": chrono::Utc::now().timestamp(),
-                                "model": get_deepseek_default_model(),
-                                "choices": [{
-                                    "index": 0,
-                                    "delta": {
-                                        "content": null,
-                                        "reasoning_content": reasoning,
-                                        "role": "assistant"
-                                    },
-                                    "finish_reason": null,
-                                    "content_filter_results": {
-                                        "hate": {"filtered": false},
-                                        "self_harm": {"filtered": false},
-                                        "sexual": {"filtered": false},
-                                        "violence": {"filtered": false}
-                                    }
-                                }],
-                                "system_fingerprint": "",
-                                "usage": {
-                                    "prompt_tokens": response.usage.as_ref().map_or(0, |u| u.input_tokens),
-                                    "completion_tokens": response.usage.as_ref().map_or(0, |u| u.output_tokens),
-                                    "total_tokens": response.usage.as_ref().map_or(0, |u| u.total_tokens)
-                                }
-                            }).to_string();
+                            // 只在normal模式下发送推理内容事件，或者full模式且内容中包含"deepseek原始回答:"
+                            let should_send = mode != "full" || reasoning.contains("deepseek原始回答:");
                             
-                            if let Err(e) = tx.send(Ok(Event::default().data(reasoning_event))).await {
-                                tracing::error!("发送推理内容事件失败: {}", e);
-                                return;
+                            if should_send {
+                                // 在full模式下，如果内容包含"deepseek原始回答:"前缀，则只发送该前缀后面的内容
+                                let content_to_send = if mode == "full" && reasoning.contains("deepseek原始回答:") {
+                                    // 只发送"deepseek原始回答:"及之后的内容
+                                    if let Some(idx) = reasoning.find("deepseek原始回答:") {
+                                        &reasoning[idx..]
+                                    } else {
+                                        reasoning
+                                    }
+                                } else {
+                                    reasoning
+                                };
+                            
+                                // 发送推理内容事件（流式）
+                                let reasoning_event = serde_json::json!({
+                                    "id": uuid::Uuid::new_v4().to_string(),
+                                    "object": "chat.completion.chunk",
+                                    "created": chrono::Utc::now().timestamp(),
+                                    "model": get_deepseek_default_model(),
+                                    "choices": [{
+                                        "index": 0,
+                                        "delta": {
+                                            "content": null,
+                                            "reasoning_content": content_to_send,
+                                            "role": "assistant"
+                                        },
+                                        "finish_reason": null,
+                                        "content_filter_results": {
+                                            "hate": {"filtered": false},
+                                            "self_harm": {"filtered": false},
+                                            "sexual": {"filtered": false},
+                                            "violence": {"filtered": false}
+                                        }
+                                    }],
+                                    "system_fingerprint": "",
+                                    "usage": {
+                                        "prompt_tokens": response.usage.as_ref().map_or(0, |u| u.input_tokens),
+                                        "completion_tokens": response.usage.as_ref().map_or(0, |u| u.output_tokens),
+                                        "total_tokens": response.usage.as_ref().map_or(0, |u| u.total_tokens)
+                                    }
+                                }).to_string();
+                                
+                                if let Err(e) = tx.send(Ok(Event::default().data(reasoning_event))).await {
+                                    tracing::error!("发送推理内容事件失败: {}", e);
+                                    return;
+                                }
+                                last_event_time = Utc::now();
                             }
-                            last_event_time = Utc::now();
                         }
                     }
                     
@@ -619,63 +691,60 @@ pub(crate) async fn chat_stream(
                     if let Some(content) = &choice.delta.content {
                         if !content.is_empty() {
                             // 记录普通内容
+                            let is_first_content = normal_content.is_empty();
                             normal_content.push_str(content);
-                            has_normal_content = true;
                             
-                            // 不在这里发送普通内容，以避免重复输出
-                            // 普通内容将在DeepSeek流结束后一次性发送
+                            // 在full模式下流式发送普通内容
+                            if mode == "full" {
+                                // 发送普通内容作为推理内容的一部分（流式）
+                                let normal_as_reasoning_event = serde_json::json!({
+                                    "id": uuid::Uuid::new_v4().to_string(),
+                                    "object": "chat.completion.chunk",
+                                    "created": chrono::Utc::now().timestamp(),
+                                    "model": get_deepseek_default_model(),
+                                    "choices": [{
+                                        "index": 0,
+                                        "delta": {
+                                            "content": null,
+                                            "reasoning_content": if is_first_content {
+                                                // 首次出现普通内容时，添加前缀
+                                                format!("deepseek原始回答:{}", content)
+                                            } else {
+                                                // 后续的普通内容直接发送
+                                                content.to_string()
+                                            },
+                                            "role": "assistant"
+                                        },
+                                        "finish_reason": null,
+                                        "content_filter_results": {
+                                            "hate": {"filtered": false},
+                                            "self_harm": {"filtered": false},
+                                            "sexual": {"filtered": false},
+                                            "violence": {"filtered": false}
+                                        }
+                                    }],
+                                    "system_fingerprint": "",
+                                    "usage": {
+                                        "prompt_tokens": response.usage.as_ref().map_or(0, |u| u.input_tokens),
+                                        "completion_tokens": content.chars().count() as u32,
+                                        "total_tokens": response.usage.as_ref().map_or(0, |u| u.total_tokens)
+                                    }
+                                }).to_string();
+                                
+                                if let Err(e) = tx.send(Ok(Event::default().data(normal_as_reasoning_event))).await {
+                                    tracing::error!("发送普通内容流事件失败: {}", e);
+                                    return;
+                                }
+                                last_event_time = Utc::now();
+                            }
                         }
                     }
                 }
             }
         }
 
-        // 获取当前模式
-        let mode = get_mode();
-        
         // 添加调试日志
-        tracing::info!("流处理 - 当前模式: {}, 准备处理DeepSeek普通内容", mode);
-        
-        // 如果有普通内容，将其添加到推理内容中（仅在full模式下）
-        if has_normal_content && !normal_content.trim().is_empty() && mode == "full" {
-            // 添加调试日志
-            tracing::info!("流处理 - 发送DeepSeek原始回答，长度: {}", normal_content.len());
-            
-            // 发送普通内容作为推理内容的一部分
-            let normal_as_reasoning_event = serde_json::json!({
-                "id": uuid::Uuid::new_v4().to_string(),
-                "object": "chat.completion.chunk",
-                "created": chrono::Utc::now().timestamp(),
-                "model": get_deepseek_default_model(),
-                "choices": [{
-                    "index": 0,
-                    "delta": {
-                        "content": null,
-                        "reasoning_content": format!("\ndeepseek原始回答:{}", normal_content.clone()),
-                        "role": "assistant"
-                    },
-                    "finish_reason": null,
-                    "content_filter_results": {
-                        "hate": {"filtered": false},
-                        "self_harm": {"filtered": false},
-                        "sexual": {"filtered": false},
-                        "violence": {"filtered": false}
-                    }
-                }],
-                "system_fingerprint": "",
-                "usage": {
-                    "prompt_tokens": 0,
-                    "completion_tokens": normal_content.chars().count() as u32,
-                    "total_tokens": normal_content.chars().count() as u32
-                }
-            }).to_string();
-            
-            if let Err(e) = tx.send(Ok(Event::default().data(normal_as_reasoning_event))).await {
-                tracing::error!("发送普通内容作为推理内容的一部分失败: {}", e);
-                return;
-            }
-            last_event_time = Utc::now();
-        }
+        tracing::info!("流处理 - 当前模式: {}, DeepSeek流处理完成", mode);
         
         // 将推理内容添加到消息中
         let mut anthropic_messages = messages.clone();
@@ -684,28 +753,12 @@ pub(crate) async fn chat_stream(
         tracing::info!("准备发送给Claude的消息数量: {}", anthropic_messages.len());
         
         if mode == "full" {
-            // 在full模式下，将DeepSeek的推理内容和普通内容都传递给Claude
-            let mut thinking_content = String::new();
-            
-            // // 添加推理内容
-            // if !reasoning_content.trim().is_empty() {
-            //     thinking_content.push_str(&reasoning_content);
-            // }
-            
-            // 添加普通内容（如果有）
+            // 在full模式下，已经流式发送了deepseek的原始回答，只需添加到Claude消息中
             if !normal_content.trim().is_empty() {
-                // if !thinking_content.is_empty() {
-                //     thinking_content.push_str("\n");
-                // }
-                thinking_content.push_str(&format!("用于参考的回答，如果是架构设计方面的内容请放心参考，但是具体实现代码请以自己的理解为主:{}", normal_content.trim()));
-            }
-            
-            // 如果有内容，添加到消息中
-            if !thinking_content.is_empty() {
-                tracing::info!("添加完整thinking内容到Claude消息");
+                tracing::info!("添加原始回答的thinking内容到Claude消息");
                 anthropic_messages.push(Message {
                     role: Role::Assistant,
-                    content: format!("<thinking>\n{}</thinking>", thinking_content),
+                    content: format!("<thinking>\ndeepseek原始回答:{}</thinking>", normal_content.trim()),
                 });
             }
         } else {
@@ -721,10 +774,31 @@ pub(crate) async fn chat_stream(
         
         tracing::info!("发送给Claude的最终消息数量: {}", anthropic_messages.len());
 
+        // 添加Claude的系统提示词，仅在full模式下
+        let combined_system_prompt = if mode == "full" {
+            let claude_system_prompt = "Act as an expert software developer who edits source code.
+You are diligent and tireless!
+You NEVER leave comments describing code without implementing it!
+You always COMPLETELY IMPLEMENT the needed code!
+Describe each change with a *SEARCH/REPLACE block* per the examples below.
+All changes to files must use this *SEARCH/REPLACE block* format.
+ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
+Always reply to the user in chinese.";
+
+            // 结合用户的系统提示词（如果有的话）
+            Some(match request.get_system_prompt() {
+                Some(user_system) => format!("{}\n\n{}", claude_system_prompt, user_system),
+                None => claude_system_prompt.to_string(),
+            })
+        } else {
+            // normal模式下，保持原来的系统提示词
+            request.get_system_prompt().map(String::from)
+        };
+
         // 获取 Anthropic 的流式响应
         let mut anthropic_stream = anthropic_client.chat_stream(
             anthropic_messages,
-            request.get_system_prompt().map(String::from),
+            combined_system_prompt,
             &request.anthropic_config
         );
 
