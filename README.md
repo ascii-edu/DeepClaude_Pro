@@ -24,7 +24,7 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>更新日志：</strong></summary> 
 <div>
-2025-03-15: 更新 1.3版本，完整模式大更新，参照aider架构师编辑师模式，提升完整模式效果，benchamrk测试紧随其后，欢迎先预览体验
+2025-03-16: 更新 1.3版本，完整模式大更新，参照aider架构师编辑师模式，提升完整模式效果，benchamrk测试紧随其后，欢迎先预览体验
 </div>
 <div>
 2025-03-15: 更新 1.2版本，后端大版本更新，新增完整模式，前端界面支持配置完整或者普通模式，benchmark的效果测试已完成
