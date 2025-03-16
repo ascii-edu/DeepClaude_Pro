@@ -45,7 +45,7 @@ In the future, I will further explore diverse model combinations and prompt engi
  <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.1前端大版本更新介绍</a>
 </div>
 <div>
- <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.2后端大版本更新介绍(视频马上更新)</a>
+ <a href="https://www.bilibili.com/video/BV1r8QXY9En9/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.2后端大版本更新介绍，增加了完整模式</a>
 </div>
 </details>
 
@@ -144,6 +144,8 @@ windows中
 ```
 copy .env.example .env
 ```
+
+第二步就是配置.env文件的内容
 
 **方法一：**
 
