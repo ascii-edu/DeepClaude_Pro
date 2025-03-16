@@ -24,7 +24,10 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>更新日志：</strong></summary> 
 <div>
-2025-03-15: 更新 1.2版本，后端大版本更新，新增完整模式，前端界面支持配置完整或者普通模式，后续benchmark的效果测试紧随其后，欢迎先预览体验
+2025-03-15: 更新 1.3版本，完整模式大更新，参照aider架构师编辑师模式，提升完整模式效果，benchamrk测试紧随其后，欢迎先预览体验
+</div>
+<div>
+2025-03-15: 更新 1.2版本，后端大版本更新，新增完整模式，前端界面支持配置完整或者普通模式，benchmark的效果测试已完成
 </div>
 <div>
 2025-03-14: 更新 1.1版本，支持前端界面配置环境变量，前端直接支持对话
@@ -42,12 +45,16 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>介绍视频：</strong></summary> 
 <div>
- <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.1前端大版本更新介绍</a>
+ <a href="https://www.bilibili.com/video/BV1r8QXY9En9/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.3完整模式更新(视频待更新)</a>
 </div>
 <div>
  <a href="https://www.bilibili.com/video/BV1r8QXY9En9/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.2后端大版本更新介绍，增加了完整模式</a>
 </div>
+<div>
+ <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.1前端大版本更新介绍</a>
+</div>
 </details>
+
 
 </details>
 
