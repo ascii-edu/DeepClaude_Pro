@@ -113,7 +113,7 @@ async fn main() -> anyhow::Result<()> {
     let mode = utils::get_mode();
     tracing::info!("当前运行模式: {}", mode);
     if mode == "full" {
-        tracing::info!("已启用完整模式，DeepSeek的推理内容和普通内容都将传递给Claude");
+        tracing::info!("已启用完整模式，DeepSeek的结果内容将传递给Claude");
     } else {
         tracing::info!("已启用普通模式，仅DeepSeek的推理内容将传递给Claude");
     }
