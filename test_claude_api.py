@@ -2,10 +2,10 @@ import requests
 import json
 
 # API 端点
-api_url = "https://api.claude-Plus.top/v1/chat/completions"
+api_url = "https://xxxx/v1/chat/completions"
 
 # API 密钥
-api_key = "sk-HU5D6cRfZXmNGNzlbOuX2GwBrSml3mokC8oa0Tgf40B2qk6h"
+api_key = "xxxx"
 
 # 构建请求头
 headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
