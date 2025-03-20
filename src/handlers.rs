@@ -62,22 +62,54 @@ impl AppState {
 ///
 /// Returns `ApiError::MissingHeader` if either token is missing
 /// Returns `ApiError::BadRequest` if tokens are malformed
-/// 从环境变量中获取API tokens
+/// 从.env文件中获取API tokens
 #[allow(dead_code)]
 fn get_env_api_tokens() -> Option<(String, String)> {
-    // 尝试加载.env文件，但即使失败也继续尝试获取环境变量
-    // 因为环境变量可能已经通过其他方式设置（如系统环境变量或命令行）
-    let _ = dotenv();
+    // 获取当前目录
+    let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let env_path = current_dir.join(".env");
     
-    // 首先尝试直接从环境变量获取
-    let deepseek = std::env::var("DEEPSEEK_API_KEY");
-    let anthropic = std::env::var("ANTHROPIC_API_KEY");
+    // 确保.env文件存在
+    if !env_path.exists() {
+        tracing::error!(".env文件不存在: {:?}", env_path);
+        return None;
+    }
     
-    match (deepseek, anthropic) {
-        (Ok(d), Ok(a)) => Some((d, a)),
+    // 读取.env文件内容
+    let content = match std::fs::read_to_string(&env_path) {
+        Ok(content) => content,
+        Err(e) => {
+            tracing::debug!("读取.env文件失败: {}", e);
+            return None;
+        }
+    };
+    
+    // 解析.env文件中的环境变量
+    let mut deepseek_key = None;
+    let mut anthropic_key = None;
+    
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        
+        if let Some(pos) = line.find('=') {
+            let key = line[..pos].trim();
+            let value = line[pos + 1..].trim();
+            
+            if key == "DEEPSEEK_API_KEY" {
+                deepseek_key = Some(value.to_string());
+            } else if key == "ANTHROPIC_API_KEY" {
+                anthropic_key = Some(value.to_string());
+            }
+        }
+    }
+    
+    match (deepseek_key, anthropic_key) {
+        (Some(d), Some(a)) => Some((d, a)),
         _ => {
-            // 如果获取失败，记录日志但不中断程序
-            tracing::debug!("无法从环境变量获取API密钥，将尝试从请求头获取");
+            tracing::debug!("无法从.env文件获取API密钥，将尝试从请求头获取");
             None
         }
     }
@@ -804,6 +836,23 @@ Always reply to the user in chinese.";
 
         let mut content_buffer = String::new();
         
+        // 获取模型信息
+        let default_model = crate::clients::anthropic::get_claude_default_model();
+        let model_str = request.anthropic_config.body.get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&default_model);
+            
+        // 判断API类型
+        let api_type = if crate::clients::anthropic::should_use_openai_format() {
+            "OpenAI格式"
+        } else if model_str.starts_with("deepseek") {
+            "DeepSeek格式"
+        } else {
+            "Anthropic格式"
+        };
+        
+        tracing::info!("使用API类型: {}, 模型: {}", api_type, model_str);
+
         // 处理 Anthropic 的流式响应
         while let Some(result) = anthropic_stream.next().await {
             match result {
@@ -918,35 +967,24 @@ Always reply to the user in chinese.";
                     }
                 }
                 Err(e) => {
-                    tracing::error!("流处理错误: {}", e);
-                    // 将错误转换为事件
-                    let error_event = serde_json::json!({
-                        "id": stream_id,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": get_deepseek_default_model(),
-                        "choices": [{
-                            "index": 0,
-                            "delta": {},
-                            "finish_reason": "error",
-                            "content_filter_results": {
-                                "hate": {"filtered": false},
-                                "self_harm": {"filtered": false},
-                                "sexual": {"filtered": false},
-                                "violence": {"filtered": false}
-                            }
-                        }],
-                        "error": {
-                            "message": e.to_string(),
-                            "type": "server_error",
-                            "code": null
-                        }
-                    }).to_string();
-                    
-                    if let Err(send_err) = tx.send(Ok(Event::default().data(error_event))).await {
-                        tracing::error!("发送错误事件失败: {}", send_err);
+                    // 特殊处理JSON解析错误
+                    let err_msg = e.to_string();
+                    if err_msg.contains("EOF while parsing") || err_msg.contains("unexpected end of input") {
+                        // 不完整的JSON错误，记录但不中断流
+                        tracing::debug!("处理流时遇到不完整的JSON，继续处理: {}", err_msg);
+                        continue;
                     }
-                    break;
+                
+                    // 其他错误正常处理
+                    tracing::error!("流处理错误: {}", e);
+                    let error_message = format!("Internal server error: {}", e);
+                    
+                    // 发送错误事件
+                    if let Err(e) = tx.send(Ok(Event::default().data(format!(r#"data: {{"error": "{error_message}"}}"#)))).await {
+                        tracing::error!("发送流错误事件失败: {}", e);
+                    }
+                    
+                    return;
                 }
             }
         }

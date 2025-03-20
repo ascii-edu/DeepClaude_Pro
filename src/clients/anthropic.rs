@@ -48,32 +48,69 @@ use futures::StreamExt;
 use serde_json;
 use tracing;
 use std::env;
+use std::fs;
+use std::path::PathBuf;
 
-// 从环境变量中读取API URL，如果未设置则使用默认值
+// 从.env文件中读取API URL，如果未设置则使用默认值
 pub(crate) fn get_anthropic_api_url() -> String {
-    env::var("ANTHROPIC_API_URL").unwrap_or_else(|_| String::from("https://api.gptsapi.net/v1/messages"))
+    read_env_from_dotenv("ANTHROPIC_API_URL").unwrap_or_else(|| String::from("https://api.gptsapi.net/v1/messages"))
 }
 
-// 从环境变量中读取Claude的OpenAI格式API URL，如果未设置则使用默认值
+// 从.env文件中读取Claude的OpenAI格式API URL，如果未设置则使用默认值
 pub(crate) fn get_claude_openai_type_api_url() -> String {
-    env::var("CLAUDE_OPENAI_TYPE_API_URL").unwrap_or_else(|_| String::from("https://api.gptsapi.net/v1/messages"))
+    read_env_from_dotenv("CLAUDE_OPENAI_TYPE_API_URL").unwrap_or_else(|| String::from("https://api.claude-Plus.top/v1/chat/completions"))
 }
 
-// 从环境变量中读取DeepSeek的OpenAI格式API URL，如果未设置则使用默认值
+// 从.env文件中读取DeepSeek的OpenAI格式API URL，如果未设置则使用默认值
 pub(crate) fn get_deepseek_openai_type_api_url() -> String {
-    env::var("DEEPSEEK_OPENAI_TYPE_API_URL").unwrap_or_else(|_| String::from("https://ark.cn-beijing.volces.com/api/v3/chat/completions"))
+    read_env_from_dotenv("DEEPSEEK_OPENAI_TYPE_API_URL").unwrap_or_else(|| String::from("https://ark.cn-beijing.volces.com/api/v3/chat/completions"))
 }
 
-// 从环境变量中读取Claude模型名称，如果未设置则使用默认值
+// 从.env文件中读取Claude模型名称，如果未设置则使用默认值
 pub(crate) fn get_claude_default_model() -> String {
-    env::var("CLAUDE_DEFAULT_MODEL").unwrap_or_else(|_| String::from("wild-3-7-sonnet-20250219"))
+    read_env_from_dotenv("CLAUDE_DEFAULT_MODEL").unwrap_or_else(|| String::from("wild-3-7-sonnet-20250219"))
+}
+
+// 辅助函数，从.env文件读取配置
+fn read_env_from_dotenv(key: &str) -> Option<String> {
+    // 只从.env文件读取配置
+    let current_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let env_path = current_dir.join(".env");
+    
+    // 确保.env文件存在
+    if !ensure_env_file_exists(&env_path) {
+        return None;
+    }
+    
+    match fs::read_to_string(&env_path) {
+        Ok(content) => {
+            content.lines()
+                .find(|line| line.starts_with(&format!("{}=", key)))
+                .and_then(|line| line.split('=').nth(1))
+                .map(|value| value.trim().trim_matches('"').to_string())
+        }
+        Err(e) => {
+            tracing::debug!("读取.env文件失败: {}", e);
+            None
+        }
+    }
+}
+
+// 确保.env文件存在
+fn ensure_env_file_exists(env_path: &PathBuf) -> bool {
+    if !env_path.exists() {
+        tracing::error!(".env文件不存在: {:?}", env_path);
+        tracing::error!("请在项目根目录创建.env文件并设置必要的配置项");
+        return false;
+    }
+    true
 }
 
 // 为了向后兼容，保留这些常量，但它们现在使用函数获取值
 #[allow(dead_code)]
 pub(crate) const ANTHROPIC_API_URL: &str = "https://api.gptsapi.net/v1/messages";
 #[allow(dead_code)]
-pub(crate) const CLAUDE_OPENAI_TYPE_API_URL: &str = "https://api.gptsapi.net/v1/messages";
+pub(crate) const CLAUDE_OPENAI_TYPE_API_URL: &str = "https://api.claude-Plus.top/v1/chat/completions";
 #[allow(dead_code)]
 pub(crate) const DEEPSEEK_OPENAI_TYPE_API_URL: &str = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
 //pub(crate) const ANTHROPIC_API_URL: &str = "https://anthropic.claude-plus.top/v1/messages";
@@ -254,9 +291,9 @@ impl AnthropicClient {
         // 根据API类型添加不同的认证头
         if is_deepseek {
             // DeepSeek API认证
-            let deepseek_token = std::env::var("DEEPSEEK_API_KEY")
-                .map_err(|_| ApiError::Internal { 
-                    message: "未设置DEEPSEEK_API_KEY环境变量".to_string() 
+            let deepseek_token = read_env_from_dotenv("DEEPSEEK_API_KEY")
+                .ok_or_else(|| ApiError::Internal { 
+                    message: "未在.env文件中找到DEEPSEEK_API_KEY".to_string() 
                 })?;
             
             headers.insert(
@@ -267,22 +304,24 @@ impl AnthropicClient {
                         message: format!("无效的Authorization头: {}", e) 
                     })?,
             );
-        } else {
-            // Anthropic API认证
-            // 尝试从环境变量获取API密钥
-            let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-            tracing::info!("当前工作目录: {:?}", current_dir);
+        } else if should_use_openai_format() {
+            // OpenAI格式API认证
+            let api_token = self._api_token.clone();
             
-            let env_content = std::fs::read_to_string(current_dir.join(".env"))
-                .map_err(|e| ApiError::Internal { 
-                    message: format!("无法读取.env文件: {}", e) 
-                })?;
-                
-            let anthropic_token = env_content
-                .lines()
-                .find(|line| line.starts_with("ANTHROPIC_API_KEY="))
-                .and_then(|line| line.split('=').nth(1))
-                .map(|value| value.trim().trim_matches('"').to_string())
+            headers.insert(
+                "Authorization",
+                format!("Bearer {}", api_token)
+                    .parse()
+                    .map_err(|e| ApiError::Internal { 
+                        message: format!("无效的Authorization头: {}", e) 
+                    })?,
+            );
+            
+            // OpenAI格式API不需要额外的头部
+        } else {
+            // Anthropic原生格式API认证
+            // 从.env文件获取API密钥
+            let anthropic_token = read_env_from_dotenv("ANTHROPIC_API_KEY")
                 .ok_or_else(|| ApiError::Internal { 
                     message: "未在.env文件中找到ANTHROPIC_API_KEY".to_string() 
                 })?;
@@ -498,9 +537,11 @@ impl AnthropicClient {
         // 选择API端点
         let api_url = if _is_deepseek {
             get_deepseek_openai_type_api_url()
-        } else if model_str.contains("openai") {
+        } else if should_use_openai_format() {
+            // 使用OpenAI格式的API
             get_claude_openai_type_api_url()
         } else {
+            // 使用Anthropic原生API
             get_anthropic_api_url()
         };
         
@@ -617,9 +658,11 @@ impl AnthropicClient {
         // 选择API端点
         let api_url = if _is_deepseek {
             get_deepseek_openai_type_api_url()
-        } else if model_str.contains("openai") {
+        } else if should_use_openai_format() {
+            // 使用OpenAI格式的API
             get_claude_openai_type_api_url()
         } else {
+            // 使用Anthropic原生API
             get_anthropic_api_url()
         };
         
@@ -680,16 +723,134 @@ impl AnthropicClient {
             tracing::debug!("开始处理流式响应");
             
             while let Some(chunk_result) = stream.next().await {
-                // 如果流已经结束，不再处理新的数据块
-                if stream_ended {
-                    tracing::debug!("流已结束，停止处理");
-                    break;
-                }
-                
-                let chunk = match chunk_result {
-                    Ok(c) => {
-                        //tracing::debug!("收到新的数据块，大小: {} bytes", c.len());
-                        c
+                match chunk_result {
+                    Ok(chunk) => {
+                        if let Ok(text) = String::from_utf8(chunk.to_vec()) {
+                            // 检查是否为OpenAI格式的最终标记
+                            if text.trim() == "data: [DONE]" {
+                                tracing::debug!("接收到OpenAI格式的流结束标记");
+                                stream_ended = true;
+                                yield Ok(StreamEvent::MessageStop);
+                                break;
+                            }
+                            
+                            // 处理流式响应
+                            let lines: Vec<&str> = text.lines().collect();
+                            
+                            for line in lines {
+                                // 跳过空行
+                                if line.trim().is_empty() {
+                                    continue;
+                                }
+                                
+                                // 处理OpenAI格式的数据行
+                                if line.starts_with("data: ") {
+                                    let json_str = &line[6..]; // 移除 "data: " 前缀
+                                    
+                                    // 跳过[DONE]标记，已在前面处理
+                                    if json_str.trim() == "[DONE]" {
+                                        continue;
+                                    }
+                                    
+                                    // 先尝试解析为OpenAI格式
+                                    if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                        // 调试输出原始JSON
+                                        tracing::debug!("OpenAI格式原始响应: {}", json_str);
+                                        
+                                        // 检查是否有choices字段，判断是否为OpenAI格式
+                                        if let Some(choices) = json_value.get("choices").and_then(|v| v.as_array()) {
+                                            if !choices.is_empty() {
+                                                // 提取delta内容
+                                                if let Some(choice) = choices.first() {
+                                                    // 提取delta中的content字段
+                                                    if let Some(delta) = choice.get("delta") {
+                                                        let content = delta.get("content").and_then(|c| c.as_str());
+                                                        if let Some(content_str) = content {
+                                                            if !content_str.is_empty() {
+                                                                tracing::debug!("解析到OpenAI格式的内容: {}", content_str);
+                                                                content_buffer.push_str(content_str);
+                                                                yield Ok(StreamEvent::ContentBlockDelta {
+                                                                    index: 0,
+                                                                    delta: ContentDelta {
+                                                                        delta_type: "text".to_string(),
+                                                                        text: content_str.to_string(),
+                                                                    },
+                                                                });
+                                                            }
+                                                        }
+                                                        continue;
+                                                    }
+                                                    
+                                                    // 检查是否为完成原因
+                                                    if let Some(finish_reason) = choice.get("finish_reason") {
+                                                        if !finish_reason.is_null() {
+                                                            tracing::debug!("检测到完成原因: {:?}", finish_reason);
+                                                            stream_ended = true;
+                                                            yield Ok(StreamEvent::MessageStop);
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // 处理没有type字段的JSON响应
+                                            if json_value.get("type").is_none() && json_value.get("choices").is_some() {
+                                                tracing::debug!("处理没有type字段的OpenAI格式响应");
+                                                // 这里是处理最后一个块的代码，通常包含完整的usage信息
+                                                // 如果需要提取usage信息并更新，可以在这里添加代码
+                                                
+                                                // 由于这不是流式内容块，我们只需记录并继续处理
+                                                tracing::info!("收到非流式块: {}", json_str);
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // 如果不是OpenAI格式，尝试解析为Anthropic格式
+                                    match serde_json::from_str::<StreamEvent>(json_str) {
+                                        Ok(event) => {
+                                            _has_content = true;
+                                            match &event {
+                                                StreamEvent::ContentBlockDelta { delta, .. } => {
+                                                    //tracing::debug!("解析到Anthropic格式的内容: {}", delta.text);
+                                                    content_buffer.push_str(&delta.text);
+                                                }
+                                                StreamEvent::MessageStop => {
+                                                    tracing::debug!("收到消息结束事件");
+                                                    stream_ended = true;
+                                                }
+                                                _ => {
+                                                    tracing::debug!("收到其他类型事件: {:?}", event);
+                                                }
+                                            }
+                                            yield Ok(event);
+                                        }
+                                        Err(e) => {
+                                            // 检查错误是否是因为不完整的JSON
+                                            let err_msg = e.to_string();
+                                            if err_msg.contains("EOF while parsing") || err_msg.contains("unexpected end of input") {
+                                                // 这是不完整的JSON，只记录调试信息，不返回错误
+                                                tracing::debug!("收到不完整的JSON数据，跳过处理: {}", json_str);
+                                                continue;
+                                            }
+                                            
+                                            // 只记录关键错误，不记录所有解析失败
+                                            if !json_str.contains("ping") && !json_str.contains("HEARTBEAT") {
+                                                tracing::error!("解析事件JSON失败: {} - {}", e, json_str);
+                                            }
+                                            // 不要为所有解析错误生成错误事件
+                                            if json_str != "[DONE]" && !json_str.contains("HEARTBEAT") {
+                                                yield Err(ApiError::Internal {
+                                                    message: format!("Failed to parse event JSON: {}", e),
+                                                });
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    //tracing::debug!("跳过非data事件: {}", raw_event);
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         tracing::error!("读取数据块时出错: {}", e);
@@ -701,99 +862,8 @@ impl AnthropicClient {
                         });
                         return;
                     }
-                };
-                
-                let chunk_str = String::from_utf8_lossy(&chunk);
-                //tracing::debug!("原始数据块内容: {}", chunk_str);
-                data.push_str(&chunk_str);
-
-                let mut start = 0;
-                while let Some(end) = data[start..].find("\n\n") {
-                    let end = start + end;
-                    let event_data = &data[start..end];
-                    start = end + 2;
-
-                    let raw_event = event_data.trim();
-                    if raw_event.is_empty() {
-                        continue;
-                    }
-
-                    //tracing::debug!("处理事件数据: {}", raw_event);
-
-                    // 解析事件数据
-                    if raw_event.starts_with("data: ") {
-                        let json_str = &raw_event["data: ".len()..];
-                        
-                        // 检查是否是结束标记
-                        if json_str == "[DONE]" {
-                            tracing::debug!("收到结束标记 [DONE]");
-                            stream_ended = true;
-                            break;
-                        }
-
-                        // 尝试解析为OpenAI格式的响应
-                        if let Ok(openai_response) = serde_json::from_str::<serde_json::Value>(json_str) {
-                            if let Some(choices) = openai_response.get("choices").and_then(|c| c.as_array()) {
-                                if let Some(choice) = choices.first() {
-                                    if let Some(delta) = choice.get("delta") {
-                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
-                                            tracing::debug!("解析到OpenAI格式的内容: {}", content);
-                                            content_buffer.push_str(content);
-                                            yield Ok(StreamEvent::ContentBlockDelta {
-                                                index: 0,
-                                                delta: ContentDelta {
-                                                    delta_type: "text".to_string(),
-                                                    text: content.to_string(),
-                                                },
-                                            });
-                                            continue;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // 如果不是OpenAI格式，尝试解析为Anthropic格式
-                        match serde_json::from_str::<StreamEvent>(json_str) {
-                            Ok(event) => {
-                                _has_content = true;
-                                match &event {
-                                    StreamEvent::ContentBlockDelta { delta, .. } => {
-                                        //tracing::debug!("解析到Anthropic格式的内容: {}", delta.text);
-                                        content_buffer.push_str(&delta.text);
-                                    }
-                                    StreamEvent::MessageStop => {
-                                        tracing::debug!("收到消息结束事件");
-                                        stream_ended = true;
-                                    }
-                                    _ => {
-                                        tracing::debug!("收到其他类型事件: {:?}", event);
-                                    }
-                                }
-                                yield Ok(event);
-                            }
-                            Err(e) => {
-                                // 只记录关键错误，不记录所有解析失败
-                                if !json_str.contains("ping") && !json_str.contains("HEARTBEAT") {
-                                    tracing::error!("解析事件JSON失败: {} - {}", e, json_str);
-                                }
-                                // 不要为所有解析错误生成错误事件
-                                if json_str != "[DONE]" && !json_str.contains("HEARTBEAT") {
-                                    yield Err(ApiError::Internal {
-                                        message: format!("Failed to parse event JSON: {}", e),
-                                    });
-                                }
-                            }
-                        }
-                    } else {
-                        //tracing::debug!("跳过非data事件: {}", raw_event);
-                    }
                 }
 
-                if start > 0 {
-                    data = data[start..].to_string();
-                }
-                
                 // 如果流已经结束，不再继续处理
                 if stream_ended {
                     break;
@@ -993,4 +1063,16 @@ fn parse_deepseek_response(raw_response: &str) -> Result<AnthropicResponse> {
         stop_sequence: None,
         usage,
     })
+}
+
+// 判断是否应该使用OpenAI格式的API（基于.env文件中的配置）
+pub(crate) fn should_use_openai_format() -> bool {
+    let claude_openai_url = read_env_from_dotenv("CLAUDE_OPENAI_TYPE_API_URL");
+    let anthropic_url = read_env_from_dotenv("ANTHROPIC_API_URL");
+    
+    match (claude_openai_url, anthropic_url) {
+        (Some(openai_url), _) if !openai_url.trim().is_empty() => true,
+        (_, Some(anthro_url)) if !anthro_url.trim().is_empty() => false,
+        _ => true  // 默认使用OpenAI格式，如果.env文件中两者都为空
+    }
 }

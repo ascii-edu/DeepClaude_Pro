@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, memo } from "react"
 import { usePostHog } from "../providers/posthog"
 import debounce from "lodash/debounce"
-import { Settings2, RotateCcw, Save, Download } from "lucide-react"
+import { Settings2, RotateCcw, Save, Download, Eye, EyeOff } from "lucide-react"
 import { useToast } from "./ui/use-toast"
 import { Button } from "./ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet"
@@ -140,10 +140,19 @@ const KeyValuePairFields = memo(({
 // 为了避免React开发模式下的警告，添加displayName
 KeyValuePairFields.displayName = "KeyValuePairFields";
 
+// 处理API密钥显示的函数，只显示前6个字符，其余用*替代
+const maskApiKey = (key: string): string => {
+  if (!key) return '';
+  return key.length > 6 ? key.substring(0, 6) + '*'.repeat(key.length - 6) : key;
+};
+
 export function Settings({ onSettingsChange }: SettingsProps) {
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
   const posthog = usePostHog()
+  const [showDeepseekApiKey, setShowDeepseekApiKey] = useState(false);
+  const [showAnthropicApiKey, setShowAnthropicApiKey] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   
   const form = useForm<SettingsFormValues>({
     defaultValues: {
@@ -505,7 +514,23 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                   <FormItem>
                     <FormLabel>API密钥</FormLabel>
                     <FormControl>
-                      <Input placeholder="输入API密钥" {...field} />
+                      <div className="relative">
+                        <Input 
+                          placeholder="输入API密钥" 
+                          type={showApiKey ? "text" : "password"}
+                          value={showApiKey ? field.value : maskApiKey(field.value)}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                        >
+                          {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </FormControl>
                   </FormItem>
                 )}
@@ -562,7 +587,23 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                 <FormItem>
                   <FormLabel>DeepSeek API密钥</FormLabel>
                   <FormControl>
-                    <Input placeholder="输入DeepSeek API密钥" {...field} />
+                    <div className="relative">
+                      <Input 
+                        placeholder="输入DeepSeek API密钥" 
+                        type={showDeepseekApiKey ? "text" : "password"}
+                        value={showDeepseekApiKey ? field.value : maskApiKey(field.value)}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowDeepseekApiKey(!showDeepseekApiKey)}
+                      >
+                        {showDeepseekApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </FormControl>
                 </FormItem>
               )}
@@ -575,7 +616,23 @@ export function Settings({ onSettingsChange }: SettingsProps) {
                 <FormItem>
                   <FormLabel>Anthropic API密钥</FormLabel>
                   <FormControl>
-                    <Input placeholder="输入Anthropic API密钥" {...field} />
+                    <div className="relative">
+                      <Input 
+                        placeholder="输入Anthropic API密钥" 
+                        type={showAnthropicApiKey ? "text" : "password"}
+                        value={showAnthropicApiKey ? field.value : maskApiKey(field.value)}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowAnthropicApiKey(!showAnthropicApiKey)}
+                      >
+                        {showAnthropicApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </FormControl>
                 </FormItem>
               )}
