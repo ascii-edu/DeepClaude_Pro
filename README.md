@@ -48,6 +48,9 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>介绍视频：</strong></summary> 
 <div>
+ <a href="https://www.bilibili.com/video/BV1NwXqYQEgH/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.3.1版本deepclaude pro普通模式和架构师模式生成塞尔达版本超级马里奥对比</a>
+</div>
+<div>
  <a href="https://www.bilibili.com/video/BV1uAXuY7EeC/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.3完整模式更新，包括deepclaude pro连接cursor教程</a>
 </div>
 <div>
