@@ -24,6 +24,14 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>更新日志：</strong></summary> 
 <div>
+2025-04-05: 更新 1.5版本，
+  <li>正式版本发布，支持线上使用</li>
+                      <li>支持用户注册</li>
+                      <li>支持注册用户免费使用额度</li>
+                      <li>支持pro账户升级</li>
+                      <li>支持查看更新记录</li>
+</div>
+<div>
 2025-03-20: 更新 1.3.1版本，前端密钥支持隐藏显示，后端修复claude的openai格式返回错误问题
 </div>
 <div>
@@ -60,6 +68,7 @@ In the future, I will further explore diverse model combinations and prompt engi
  <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.1前端大版本更新介绍</a>
 </div>
 </details>
+
 
 
 </details>
