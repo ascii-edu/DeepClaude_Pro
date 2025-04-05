@@ -77,6 +77,12 @@ In the future, I will further explore diverse model combinations and prompt engi
 
 DeepClaude是一个高性能的大语言模型（LLM）推理API，它将深度求索R1的思维链（CoT）推理能力与人工智能公司Anthropic的Claude模型在创造力和代码生成方面的优势相结合。它提供了一个统一的接口，让你在完全掌控自己的API密钥和数据的同时，充分利用这两个模型的优势。
 
+## 在线访问地址
+
+```
+https://deepclaudepro.com/
+```
+
 ## 功能特性
 🚀 **零延迟** - 由高性能的Rust API驱动，先由R1的思维链提供即时响应，随后在单个流中呈现Claude的回复  
 🔒 **私密且安全** - 采用端到端的安全措施，进行本地API密钥管理。你的数据将保持私密  
