@@ -24,6 +24,11 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>更新日志：</strong></summary> 
 <div>
+2025-04-12: 更新 1.6版本，
+  <li>支持免费使用gemini2.5pro的专属升级模式</li>
+                      <li>支持升级pro+账户来使用gemini2.5pro和deepseekv3的组合模型</li>
+</div>
+<div>
 2025-04-05: 更新 1.5版本，
   <li>正式版本发布，支持线上使用</li>
                       <li>支持用户注册</li>
@@ -56,6 +61,12 @@ In the future, I will further explore diverse model combinations and prompt engi
 <details open>
 <summary><strong>介绍视频：</strong></summary> 
 <div>
+ <a href="https://www.bilibili.com/video/BV1uVdeYtE46/">1.6版本deepclaude pro新增gemini2.5pro专属优化模式，提供免费试用额度</a>
+</div>
+<div>
+ <a href="https://www.bilibili.com/video/BV1BGRfY3En3/">1.5版本deepclaude pro支持在线使用</a>
+</div>
+<div>
  <a href="https://www.bilibili.com/video/BV1NwXqYQEgH/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.3.1版本deepclaude pro普通模式和架构师模式生成塞尔达版本超级马里奥对比</a>
 </div>
 <div>
@@ -68,6 +79,7 @@ In the future, I will further explore diverse model combinations and prompt engi
  <a href="https://www.bilibili.com/video/BV179QKYQEHc/?share_source=copy_web&vd_source=af0467782c65c2210ca5b92fa8959105">1.1前端大版本更新介绍</a>
 </div>
 </details>
+
 
 
 
